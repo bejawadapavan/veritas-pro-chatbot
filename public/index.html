@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Veritas Pro - Advanced AI Agentic Platform</title>
+  
+  <!-- Tailwind CSS & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Marked.js Markdown Engine -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  
+  <!-- Prism.js Syntax Highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  
+  <link rel="stylesheet" href="style.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+              950: '#1e1b4b'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased flex flex-col font-sans selection:bg-brand-500 selection:text-white overflow-hidden">
+
+  <!-- Top Navigation Bar -->
+  <header class="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-xl sticky top-0 z-40 h-16 flex-shrink-0">
+    <div class="w-full px-4 sm:px-6 h-full flex items-center justify-between">
+      
+      <!-- Brand & Status -->
+      <div class="flex items-center gap-3">
+        <button id="btnToggleSidebarMobile" class="lg:hidden p-2 rounded-lg bg-slate-800/70 text-slate-300 hover:text-white">
+          <i data-lucide="menu" class="w-5 h-5"></i>
+        </button>
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-sky-400 p-[1px] shadow-lg shadow-brand-500/20">
+          <div class="w-full h-full bg-slate-950 rounded-[11px] flex items-center justify-center">
+            <i data-lucide="cpu" class="w-5 h-5 text-indigo-400"></i>
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold text-base tracking-tight text-white">VERITAS<span class="text-brand-400 font-normal">.AGENTIC</span></span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              v2.5 Enterprise
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400 hidden sm:block">Autonomous Multi-Step ReAct Engine • Full SQLite Backend</p>
+        </div>
+      </div>
+
+      <!-- Center / Model Switcher -->
+      <div class="hidden md:flex items-center gap-2">
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs shadow-inner">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5 text-brand-400"></i>
+          <span class="text-slate-400 font-medium">Model:</span>
+          <select id="modelSelector" class="bg-transparent text-white font-medium focus:outline-none cursor-pointer">
+            <option value="auto" class="bg-slate-900 text-white">Auto (Smart Engine)</option>
+            <optgroup label="Google Gemini" class="bg-slate-900 text-slate-300">
+              <option value="gemini-1.5-flash" class="bg-slate-900 text-white">Gemini 1.5 Flash (Ultra-Fast)</option>
+              <option value="gemini-1.5-pro" class="bg-slate-900 text-white">Gemini 1.5 Pro (Deep Reasoning)</option>
+              <option value="gemini-2.0-flash" class="bg-slate-900 text-white">Gemini 2.0 Flash (Next-Gen)</option>
+            </optgroup>
+            <optgroup label="OpenAI" class="bg-slate-900 text-slate-300">
+              <option value="gpt-4o-mini" class="bg-slate-900 text-white">GPT-4o Mini (Cost-Efficient)</option>
+              <option value="gpt-4o" class="bg-slate-900 text-white">GPT-4o (Flagship Autonomous)</option>
+              <option value="o3-mini" class="bg-slate-900 text-white">o3-mini (Advanced Reasoning)</option>
+            </optgroup>
+            <optgroup label="Groq Fast Inference" class="bg-slate-900 text-slate-300">
+              <option value="llama-3.3-70b-versatile" class="bg-slate-900 text-white">Llama 3.3 70B (Groq 300 t/s)</option>
+              <option value="mixtral-8x7b-32768" class="bg-slate-900 text-white">Mixtral 8x7B (Groq)</option>
+            </optgroup>
+            <optgroup label="Local / Fallback" class="bg-slate-900 text-slate-300">
+              <option value="local" class="bg-slate-900 text-white">Local Autonomous Engine (Zero-Key)</option>
+              <option value="llama3" class="bg-slate-900 text-white">Ollama Local Llama 3</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+
+      <!-- Right Action Controls -->
+      <div class="flex items-center gap-2.5">
+        <!-- DB WAL Status -->
+        <div class="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs">
+          <i data-lucide="database" class="w-3.5 h-3.5 text-sky-400"></i>
+          <span class="text-slate-400">SQLite:</span>
+          <span id="dbBadge" class="text-emerald-400 font-mono font-medium">WAL Active</span>
+        </div>
+
+        <!-- Export Chat -->
+        <button id="btnExportChat" title="Export conversation to Markdown" class="p-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition flex items-center gap-1.5 text-xs">
+          <i data-lucide="download" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">Export</span>
+        </button>
+
+        <!-- Deploy & Share Chatbot Modal Trigger -->
+        <button id="btnOpenDeploy" class="px-3.5 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-emerald-500/40 text-emerald-300 hover:text-white transition flex items-center gap-1.5 text-xs font-semibold shadow-sm shadow-emerald-500/10">
+          <i data-lucide="share-2" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span>Deploy & Share</span>
+        </button>
+
+        <!-- API Keys & Settings Modal Trigger -->
+        <button id="btnOpenSettings" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-medium text-xs transition flex items-center gap-2 shadow-lg shadow-brand-500/20">
+          <i data-lucide="key" class="w-3.5 h-3.5"></i>
+          <span>Attach API Keys</span>
+          <span id="keyStatusDot" class="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400"></span>
+        </button>
+
+        <!-- Toggle Inspector Drawer -->
+        <button id="btnToggleDrawer" class="p-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition" title="Toggle Knowledge & Telemetry Panel">
+          <i data-lucide="panel-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main 3-Column Layout Container -->
+  <div class="flex-1 flex overflow-hidden w-full relative">
+
+    <!-- ============================================================== -->
+    <!-- LEFT SIDEBAR: Multi-Session Chat Management & Persona Switcher -->
+    <!-- ============================================================== -->
+    <aside id="sidebarLeft" class="w-72 bg-slate-900/70 border-r border-slate-800/80 flex flex-col flex-shrink-0 z-30 transition-all duration-200">
+      
+      <!-- New Session Action -->
+      <div class="p-3 border-b border-slate-800/80 space-y-2">
+        <button id="btnNewSession" class="w-full py-2.5 px-3 rounded-xl bg-brand-600/20 hover:bg-brand-600/30 text-brand-200 border border-brand-500/30 hover:border-brand-500/50 transition flex items-center justify-between text-xs font-semibold shadow-sm">
+          <span class="flex items-center gap-2">
+            <i data-lucide="plus-circle" class="w-4 h-4 text-brand-400"></i>
+            New Conversation
+          </span>
+          <span class="text-[10px] bg-slate-900/80 px-1.5 py-0.5 rounded text-slate-400">Ctrl+N</span>
+        </button>
+
+        <!-- Search Chats -->
+        <div class="relative">
+          <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500"></i>
+          <input id="searchSessionsInput" type="text" placeholder="Filter conversations..." class="w-full bg-slate-950/60 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-brand-500">
+        </div>
+      </div>
+
+      <!-- Agent Persona Picker -->
+      <div class="p-3 border-b border-slate-800/80">
+        <label class="block text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-2">Agent Persona / Mode</label>
+        <div class="grid grid-cols-2 gap-1.5">
+          <button data-persona="general" class="persona-btn active text-left p-2 rounded-lg border text-[11px] font-medium flex items-center gap-1.5 transition">
+            <i data-lucide="bot" class="w-3.5 h-3.5 text-brand-400"></i>
+            <span>Generalist</span>
+          </button>
+          <button data-persona="researcher" class="persona-btn text-left p-2 rounded-lg border text-[11px] font-medium flex items-center gap-1.5 transition">
+            <i data-lucide="microscope" class="w-3.5 h-3.5 text-cyan-400"></i>
+            <span>Research</span>
+          </button>
+          <button data-persona="coder" class="persona-btn text-left p-2 rounded-lg border text-[11px] font-medium flex items-center gap-1.5 transition">
+            <i data-lucide="code-2" class="w-3.5 h-3.5 text-emerald-400"></i>
+            <span>Code/Data</span>
+          </button>
+          <button data-persona="auditor" class="persona-btn text-left p-2 rounded-lg border text-[11px] font-medium flex items-center gap-1.5 transition">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-amber-400"></i>
+            <span>Auditor</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Session List Stream -->
+      <div class="flex-1 overflow-y-auto p-2 space-y-1" id="sessionList">
+        <!-- Dynamic Session Items Injected Here -->
+      </div>
+
+      <!-- Active Database Telemetry Footer -->
+      <div class="p-3 border-t border-slate-800/80 bg-slate-950/40 text-[11px] text-slate-400 flex items-center justify-between">
+        <span class="flex items-center gap-1.5">
+          <i data-lucide="server" class="w-3.5 h-3.5 text-indigo-400"></i>
+          <span id="statSessionsCount">0</span> Sessions / <span id="statMsgsCount">0</span> Msgs
+        </span>
+        <span class="font-mono text-[10px] text-emerald-400">WAL: Ok</span>
+      </div>
+
+    </aside>
+
+    <!-- ============================================================== -->
+    <!-- CENTER CONSOLE: Interactive Chat & ReAct Execution Thread     -->
+    <!-- ============================================================== -->
+    <main class="flex-1 flex flex-col bg-slate-950 relative overflow-hidden min-w-0">
+      
+      <!-- Chat Sub-Header Banner -->
+      <div class="px-6 py-2.5 border-b border-slate-800/80 bg-slate-900/40 backdrop-blur flex items-center justify-between text-xs">
+        <div class="flex items-center gap-2 min-w-0">
+          <span id="currentSessionTitle" class="font-bold text-slate-200 truncate">Main Production Workspace</span>
+          <button id="btnRenameSession" class="text-slate-500 hover:text-slate-300 p-1 rounded" title="Rename Session">
+            <i data-lucide="edit-3" class="w-3 h-3"></i>
+          </button>
+        </div>
+        
+        <!-- Live Tool Status Pill -->
+        <div id="agentStatusBadge" class="hidden items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/30 text-brand-300 text-[11px] font-mono animate-pulse">
+          <i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i>
+          <span id="agentStatusText">Autonomous Reasoning in Progress...</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button id="btnClearHistory" class="text-slate-400 hover:text-rose-400 text-xs flex items-center gap-1 transition" title="Clear current session messages">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Clear</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Messages Thread Scroll Area -->
+      <div id="messagesThread" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+        
+        <!-- Welcoming Hero Card -->
+        <div class="max-w-3xl mx-auto p-6 rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950 border border-slate-800/80 text-slate-300 space-y-4 shadow-xl">
+          <div class="flex items-center gap-3">
+            <div class="p-2 rounded-xl bg-brand-600/20 border border-brand-500/30 text-brand-400">
+              <i data-lucide="sparkles" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-white tracking-tight">Veritas Pro Autonomous Agentic Environment</h2>
+              <p class="text-xs text-slate-400">Equipped with 8 sandboxed deterministic tools, document RAG, and full SQLite persistence.</p>
+            </div>
+          </div>
+          
+          <!-- Capabilities Matrix -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
+            <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-1">
+              <div class="flex items-center gap-1.5 text-brand-400 font-semibold">
+                <i data-lucide="calculator" class="w-3.5 h-3.5"></i>
+                <span>Math Engine</span>
+              </div>
+              <p class="text-slate-400 text-[10px]">Zero LLM calculation drift.</p>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-1">
+              <div class="flex items-center gap-1.5 text-cyan-400 font-semibold">
+                <i data-lucide="globe" class="w-3.5 h-3.5"></i>
+                <span>Web & Search</span>
+              </div>
+              <p class="text-slate-400 text-[10px]">Real-time live queries & URLs.</p>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-1">
+              <div class="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
+                <span>Code Sandbox</span>
+              </div>
+              <p class="text-slate-400 text-[10px]">Safe isolated VM execution.</p>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-1">
+              <div class="flex items-center gap-1.5 text-purple-400 font-semibold">
+                <i data-lucide="database" class="w-3.5 h-3.5"></i>
+                <span>Database & RAG</span>
+              </div>
+              <p class="text-slate-400 text-[10px]">SQLite WAL + document search.</p>
+            </div>
+          </div>
+
+          <!-- Quick Benchmark Chips -->
+          <div class="pt-2 border-t border-slate-800/60">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">Test Benchmarks:</span>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="fillPrompt('What is ((4890 * 1.18) + 720) / 4?')" class="benchmark-pill text-xs px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800/60 text-slate-300 transition flex items-center gap-1.5">
+                <i data-lucide="calculator" class="w-3 h-3 text-amber-400"></i>
+                <span>Exact Math Formula</span>
+              </button>
+              <button onclick="fillPrompt('What is Agentic AI according to the verified database?')" class="benchmark-pill text-xs px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800/60 text-slate-300 transition flex items-center gap-1.5">
+                <i data-lucide="shield-check" class="w-3 h-3 text-emerald-400"></i>
+                <span>Query Ground Truth DB</span>
+              </button>
+              <button onclick="fillPrompt('Show all tables and row counts in our SQLite database')" class="benchmark-pill text-xs px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800/60 text-slate-300 transition flex items-center gap-1.5">
+                <i data-lucide="database" class="w-3 h-3 text-sky-400"></i>
+                <span>Inspect Database Schema</span>
+              </button>
+              <button onclick="fillPrompt('Fetch live system metrics and runtime memory')" class="benchmark-pill text-xs px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800/60 text-slate-300 transition flex items-center gap-1.5">
+                <i data-lucide="cpu" class="w-3 h-3 text-purple-400"></i>
+                <span>Server & Hardware Telemetry</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Attachment Preview Drawer (when user selects file) -->
+      <div id="attachmentPreview" class="hidden px-6 py-2 bg-slate-900/90 border-t border-slate-800 flex items-center justify-between text-xs">
+        <div class="flex items-center gap-2 text-brand-300">
+          <i data-lucide="paperclip" class="w-4 h-4"></i>
+          <span id="attachmentFileName" class="font-medium">filename.txt</span>
+          <span id="attachmentFileSize" class="text-slate-400 text-[10px]">(0 KB)</span>
+        </div>
+        <button id="btnRemoveAttachment" class="text-slate-400 hover:text-rose-400 p-1">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+
+      <!-- Bottom Chat Composer Bar -->
+      <div class="p-4 bg-slate-950/80 border-t border-slate-800/80 backdrop-blur-sm">
+        <div class="max-w-4xl mx-auto">
+          <form id="chatForm" class="flex items-end gap-2.5">
+            
+            <!-- File Upload / Attachment Trigger -->
+            <label class="cursor-pointer p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/80 text-slate-400 hover:text-brand-400 transition shadow-inner flex items-center justify-center flex-shrink-0" title="Attach Document / Code for RAG Context">
+              <i data-lucide="paperclip" class="w-4 h-4"></i>
+              <input type="file" id="fileInput" class="hidden" accept=".txt,.md,.json,.csv,.js,.py,.html,.css,.sql,.log">
+            </label>
+
+            <!-- Textarea Input Bar -->
+            <div class="flex-1 relative">
+              <textarea 
+                id="chatInput" 
+                rows="1" 
+                placeholder="Ask questions, execute sandboxed code, query database, or formulate complex calculations..."
+                class="w-full bg-slate-900/90 border border-slate-800 text-xs sm:text-sm text-white rounded-xl pl-4 pr-12 py-3.5 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition placeholder:text-slate-500 resize-none max-h-36 shadow-inner"
+              ></textarea>
+              <div class="absolute right-3 bottom-3 text-[10px] text-slate-500 font-mono hidden sm:block">↵ Enter</div>
+            </div>
+
+            <!-- Send Button -->
+            <button 
+              type="submit" 
+              id="sendBtn" 
+              class="px-5 py-3.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shadow-lg shadow-brand-500/25 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span>Run</span>
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+            </button>
+          </form>
+          <div class="mt-2 text-[10px] text-slate-500 flex justify-between items-center px-1">
+            <span>Powered by Autonomous ReAct Tool Engine & SQLite Write-Ahead Logging</span>
+            <span id="activeProviderLabel" class="text-brand-400 font-medium">Smart Fallback Active</span>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ============================================================== -->
+    <!-- RIGHT SIDEBAR: Knowledge Base, Document RAG & Live Audit Logs -->
+    <!-- ============================================================== -->
+    <aside id="sidebarRight" class="w-80 bg-slate-900/70 border-l border-slate-800/80 flex flex-col flex-shrink-0 z-30 transition-all duration-200">
+      
+      <!-- Drawer Tab Switcher -->
+      <div class="flex border-b border-slate-800/80 text-xs font-semibold bg-slate-950/40">
+        <button data-tab="knowledge" class="drawer-tab active flex-1 py-3 text-center border-b-2 transition flex items-center justify-center gap-1.5">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span>Knowledge & RAG</span>
+        </button>
+        <button data-tab="audit" class="drawer-tab flex-1 py-3 text-center border-b-2 transition flex items-center justify-center gap-1.5">
+          <i data-lucide="activity" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span>Audit Log</span>
+        </button>
+        <button data-tab="db" class="drawer-tab flex-1 py-3 text-center border-b-2 transition flex items-center justify-center gap-1.5">
+          <i data-lucide="database" class="w-3.5 h-3.5 text-sky-400"></i>
+          <span>Database</span>
+        </button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-4">
+        
+        <!-- ======================= TAB 1: KNOWLEDGE & DOCUMENTS ======================= -->
+        <div id="tabContentKnowledge" class="space-y-4">
+          
+          <!-- Ingest Document (RAG) Section -->
+          <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-2.5 shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="files" class="w-3.5 h-3.5 text-brand-400"></i>
+                Ingested Documents (RAG)
+              </span>
+              <label class="cursor-pointer text-[10px] px-2 py-1 rounded bg-brand-600/20 text-brand-300 border border-brand-500/30 hover:bg-brand-600/40 transition flex items-center gap-1">
+                <i data-lucide="upload" class="w-3 h-3"></i> Upload
+                <input type="file" id="ragFileInput" class="hidden" accept=".txt,.md,.json,.csv,.js,.py,.sql">
+              </label>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-snug">Documents uploaded here are indexed in SQLite for autonomous semantic retrieval.</p>
+            <div id="documentsList" class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+              <!-- Documents rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Verified Ground Truth Facts Section -->
+          <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-2.5 shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>
+                Verified Knowledge Base
+              </span>
+              <button id="btnOpenAddFact" class="text-[10px] px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 transition flex items-center gap-1">
+                <i data-lucide="plus" class="w-3 h-3"></i> Add Fact
+              </button>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-snug">Authoritative facts audited in SQLite used to prevent hallucination.</p>
+            <div id="knowledgeList" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+              <!-- Knowledge records rendered dynamically -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ======================= TAB 2: LIVE AUDIT LOG ======================= -->
+        <div id="tabContentAudit" class="hidden space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-400"></i>
+              Tool Execution Traces
+            </span>
+            <button id="btnRefreshAudit" class="text-[10px] text-slate-400 hover:text-white flex items-center gap-1">
+              <i data-lucide="rotate-cw" class="w-3 h-3"></i> Refresh
+            </button>
+          </div>
+          <div id="auditLogsList" class="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+            <!-- Audit logs rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- ======================= TAB 3: DATABASE EXPLORER ======================= -->
+        <div id="tabContentDb" class="hidden space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="database" class="w-3.5 h-3.5 text-sky-400"></i>
+              Read-Only SQL Explorer
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400">Query any SQLite table directly (`sessions`, `messages`, `knowledge_base`, `documents`, `audit_logs`).</p>
+          
+          <form id="dbQueryForm" class="space-y-2">
+            <textarea id="dbQueryInput" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs font-mono text-white focus:outline-none focus:border-brand-500" placeholder="SELECT name FROM sqlite_master WHERE type='table';">SELECT name FROM sqlite_master WHERE type='table';</textarea>
+            <button type="submit" class="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg text-white transition flex items-center justify-center gap-1.5">
+              <i data-lucide="play" class="w-3 h-3 text-emerald-400"></i> Run Query
+            </button>
+          </form>
+
+          <div id="dbQueryOutput" class="p-2 bg-slate-950/80 border border-slate-800 rounded-lg text-[10px] font-mono overflow-x-auto max-h-64">
+            <span class="text-slate-500">Query results will display here.</span>
+          </div>
+        </div>
+
+      </div>
+
+    </aside>
+
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- MODAL: DYNAMIC API KEYS & ENGINE SETTINGS                     -->
+  <!-- ============================================================== -->
+  <div id="settingsModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+      
+      <!-- Modal Header -->
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded-xl bg-brand-600/20 text-brand-400 border border-brand-500/30">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm text-white">AI Engine & API Keys Attachment</h3>
+            <p class="text-[11px] text-slate-400">Attach provider keys dynamically. Saved directly to SQLite backend.</p>
+          </div>
+        </div>
+        <button id="btnCloseSettings" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Settings Form -->
+      <form id="settingsForm" class="space-y-4 text-xs">
+
+        <!-- Generated Master Application API Key Card -->
+        <div class="p-3.5 rounded-xl bg-gradient-to-r from-brand-950/80 to-indigo-950/80 border border-brand-500/30 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="font-bold text-brand-300 flex items-center gap-1.5">
+              <i data-lucide="shield-check" class="w-4 h-4 text-brand-400"></i>
+              Application Master API Key
+            </label>
+            <div class="flex items-center gap-1.5">
+              <button type="button" id="btnRegenAppKey" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white border border-slate-700 hover:bg-slate-700 transition">Regenerate</button>
+              <button type="button" id="btnCopyAppKey" class="text-[10px] px-2 py-0.5 rounded bg-brand-600/30 text-brand-200 border border-brand-500/40 hover:bg-brand-600/50 transition flex items-center gap-1 font-semibold">
+                <i data-lucide="copy" class="w-2.5 h-2.5"></i> Copy Key
+              </button>
+            </div>
+          </div>
+          <div class="relative">
+            <input type="text" id="inputAppMasterKey" readonly class="w-full bg-slate-950 border border-brand-500/30 rounded-lg px-3 py-2 text-brand-200 font-mono text-xs focus:outline-none select-all">
+          </div>
+          <p class="text-[10px] text-slate-400">Use this token to authenticate external REST requests (`x-api-key: vpro_live_...` or Bearer token) and webhooks.</p>
+        </div>
+
+        <!-- Google Gemini Card -->
+        <div class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <label class="font-bold text-slate-300 flex items-center gap-1.5">
+                <i data-lucide="sparkle" class="w-3.5 h-3.5 text-blue-400"></i>
+                Google Gemini API Key
+              </label>
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[10px] text-blue-400 hover:text-blue-300 underline flex items-center gap-0.5" title="Get free Gemini key from Google AI Studio">
+                Get Free Key <i data-lucide="external-link" class="w-2.5 h-2.5"></i>
+              </a>
+            </div>
+            <button type="button" onclick="testKey('gemini')" class="text-[10px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20 transition">Test Connection</button>
+          </div>
+          <div class="relative">
+            <input type="password" id="inputGeminiKey" placeholder="AIzaSy... (Gemini 2.0 / 1.5)" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-brand-500">
+          </div>
+          <div id="testStatus_gemini" class="text-[10px] hidden font-mono"></div>
+        </div>
+
+        <!-- OpenAI Card -->
+        <div class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="font-bold text-slate-300 flex items-center gap-1.5">
+              <i data-lucide="bot" class="w-3.5 h-3.5 text-emerald-400"></i>
+              OpenAI API Key
+            </label>
+            <button type="button" onclick="testKey('openai')" class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 transition">Test Connection</button>
+          </div>
+          <div class="relative">
+            <input type="password" id="inputOpenAIKey" placeholder="sk-proj-... (GPT-4o / o3-mini)" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-brand-500">
+          </div>
+          <div id="testStatus_openai" class="text-[10px] hidden font-mono"></div>
+        </div>
+
+        <!-- Groq Card -->
+        <div class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <label class="font-bold text-slate-300 flex items-center gap-1.5">
+                <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i>
+                Groq API Key (300+ tokens/sec)
+              </label>
+              <a href="https://console.groq.com/keys" target="_blank" class="text-[10px] text-amber-400 hover:text-amber-300 underline flex items-center gap-0.5" title="Get free Groq API key">
+                Get Free Key <i data-lucide="external-link" class="w-2.5 h-2.5"></i>
+              </a>
+            </div>
+            <button type="button" onclick="testKey('groq')" class="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 transition">Test Connection</button>
+          </div>
+          <div class="relative">
+            <input type="password" id="inputGroqKey" placeholder="gsk_... (Llama 3.3 70B)" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-brand-500">
+          </div>
+          <div id="testStatus_groq" class="text-[10px] hidden font-mono"></div>
+        </div>
+
+        <!-- OpenRouter / DeepSeek Card -->
+        <div class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="font-bold text-slate-300 flex items-center gap-1.5">
+              <i data-lucide="globe" class="w-3.5 h-3.5 text-purple-400"></i>
+              OpenRouter / DeepSeek API Key
+            </label>
+            <button type="button" onclick="testKey('openrouter')" class="text-[10px] px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/30 hover:bg-purple-500/20 transition">Test Connection</button>
+          </div>
+          <div class="relative">
+            <input type="password" id="inputOpenRouterKey" placeholder="sk-or-... (DeepSeek-V3 / R1)" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-brand-500">
+          </div>
+          <div id="testStatus_openrouter" class="text-[10px] hidden font-mono"></div>
+        </div>
+
+        <!-- Ollama Local Endpoint -->
+        <div class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="font-bold text-slate-300 flex items-center gap-1.5">
+              <i data-lucide="hard-drive" class="w-3.5 h-3.5 text-rose-400"></i>
+              Ollama Local Host Endpoint
+            </label>
+            <button type="button" onclick="testKey('ollama')" class="text-[10px] px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20 transition">Ping Ollama</button>
+          </div>
+          <div class="relative">
+            <input type="text" id="inputOllamaHost" placeholder="http://127.0.0.1:11434" value="http://127.0.0.1:11434" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-brand-500">
+          </div>
+          <div id="testStatus_ollama" class="text-[10px] hidden font-mono"></div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" id="btnCancelSettings" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-bold transition flex items-center gap-2 shadow-lg shadow-brand-500/25">
+            <i data-lucide="save" class="w-4 h-4"></i>
+            <span>Save Configuration</span>
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- MODAL: ADD VERIFIED FACT TO KNOWLEDGE BASE                     -->
+  <!-- ============================================================== -->
+  <div id="factModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-sm text-white flex items-center gap-2">
+          <i data-lucide="shield-plus" class="w-4 h-4 text-emerald-400"></i> Add Verified Fact to SQLite
+        </h3>
+        <button id="btnCloseFactModal" class="text-slate-400 hover:text-white p-1"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <form id="factForm" class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 font-semibold mb-1">Topic</label>
+          <input id="factTopic" type="text" placeholder="e.g. Byzantine Fault Tolerance" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-500" required>
+        </div>
+        <div>
+          <label class="block text-slate-400 font-semibold mb-1">Category</label>
+          <input id="factCategory" type="text" placeholder="e.g. Distributed Systems" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-500">
+        </div>
+        <div>
+          <label class="block text-slate-400 font-semibold mb-1">Audited Statement</label>
+          <textarea id="factContent" rows="3" placeholder="Factual verified statement..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-500" required></textarea>
+        </div>
+        <div>
+          <label class="block text-slate-400 font-semibold mb-1">Source Citation</label>
+          <input id="factSource" type="text" placeholder="e.g. Leslie Lamport, ACM TOPLAS" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-500">
+        </div>
+        <button type="submit" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 font-bold rounded-xl text-white transition flex items-center justify-center gap-1.5">
+          <i data-lucide="check" class="w-4 h-4"></i> Save Ground Truth
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- MODAL: DEPLOY & SHARE CHATBOT FOR EVERY USER                  -->
+  <!-- ============================================================== -->
+  <div id="deployModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+      
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+            <i data-lucide="share-2" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm text-white">Deploy & Share AI Chatbot</h3>
+            <p class="text-[11px] text-slate-400">Public links and embed snippets for every user & device.</p>
+          </div>
+        </div>
+        <button id="btnCloseDeployModal" class="text-slate-400 hover:text-white p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        
+        <!-- 0. Phone QR Code Quick Scanner -->
+        <div class="p-4 rounded-xl bg-gradient-to-r from-emerald-950/60 via-slate-900 to-brand-950/60 border border-emerald-500/30 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-emerald-300 flex items-center gap-1.5 text-xs">
+              <i data-lucide="smartphone" class="w-4 h-4 text-emerald-400"></i>
+              Scan with Phone Camera to Open Instantly
+            </span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold">Instant Mobile Chat</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <!-- Wi-Fi QR -->
+            <div class="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-center space-y-2">
+              <span class="text-[11px] font-bold text-slate-300 flex items-center justify-center gap-1">
+                <i data-lucide="wifi" class="w-3.5 h-3.5 text-cyan-400"></i> Wi-Fi / Local Network
+              </span>
+              <div class="p-1.5 bg-white rounded-lg inline-block shadow-md">
+                <img id="imgPhoneWifiQr" src="" alt="Wi-Fi QR" class="w-28 h-28 mx-auto block">
+              </div>
+              <div class="text-[9px] text-slate-400 truncate font-mono" id="txtPhoneWifiUrl">Loading...</div>
+              <button onclick="copyDeployText('txtPhoneWifiUrl')" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 w-full transition">Copy Wi-Fi Link</button>
+            </div>
+
+            <!-- Global Internet QR -->
+            <div class="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-center space-y-2">
+              <span class="text-[11px] font-bold text-slate-300 flex items-center justify-center gap-1">
+                <i data-lucide="globe" class="w-3.5 h-3.5 text-emerald-400"></i> Global Internet Link
+              </span>
+              <div class="p-1.5 bg-white rounded-lg inline-block shadow-md">
+                <img id="imgPhonePublicQr" src="" alt="Public QR" class="w-28 h-28 mx-auto block">
+              </div>
+              <div class="text-[9px] text-slate-400 truncate font-mono" id="txtPhonePublicUrl">Loading...</div>
+              <button onclick="copyDeployText('txtPhonePublicUrl')" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 w-full transition">Copy Internet Link</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1. Direct Public User Link -->
+        <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-200 flex items-center gap-1.5">
+              <i data-lucide="link" class="w-3.5 h-3.5 text-emerald-400"></i>
+              Direct Chat Link (For End Users / Mobile)
+            </span>
+            <div class="flex items-center gap-1.5">
+              <a id="linkOpenChat" href="/chat" target="_blank" class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 transition flex items-center gap-1">
+                Open <i data-lucide="external-link" class="w-2.5 h-2.5"></i>
+              </a>
+              <button onclick="copyDeployText('inputPublicChatUrl')" class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white border border-slate-700 transition">Copy</button>
+            </div>
+          </div>
+          <input id="inputPublicChatUrl" type="text" readonly class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono text-xs select-all">
+          <p class="text-[10px] text-slate-400">Share this with any user. Every visitor gets an isolated private session with automatic SQLite memory.</p>
+        </div>
+
+        <!-- 2. Embeddable Widget -->
+        <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-200 flex items-center gap-1.5">
+              <i data-lucide="code-2" class="w-3.5 h-3.5 text-brand-400"></i>
+              Website Drop-in Widget (&lt;script&gt;)
+            </span>
+            <div class="flex items-center gap-1.5">
+              <a href="/widget-demo" target="_blank" class="px-2 py-0.5 rounded bg-brand-500/10 text-brand-300 border border-brand-500/30 hover:bg-brand-500/20 transition flex items-center gap-1">
+                Demo <i data-lucide="external-link" class="w-2.5 h-2.5"></i>
+              </a>
+              <button onclick="copyDeployText('inputEmbedScript')" class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white border border-slate-700 transition">Copy</button>
+            </div>
+          </div>
+          <input id="inputEmbedScript" type="text" readonly class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-brand-300 font-mono text-[11px] select-all">
+          <p class="text-[10px] text-slate-400">Paste before &lt;/body&gt; on any website to add the floating AI chatbot bubble.</p>
+        </div>
+
+        <!-- 3. Iframe Embed -->
+        <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-200 flex items-center gap-1.5">
+              <i data-lucide="layout" class="w-3.5 h-3.5 text-sky-400"></i>
+              Iframe Embed
+            </span>
+            <button onclick="copyDeployText('inputIframeCode')" class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white border border-slate-700 transition">Copy</button>
+          </div>
+          <input id="inputIframeCode" type="text" readonly class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sky-300 font-mono text-[11px] select-all">
+        </div>
+
+        <!-- 4. Worldwide Internet Tunnel -->
+        <div class="p-3.5 rounded-xl bg-indigo-950/30 border border-indigo-500/30 space-y-2">
+          <span class="font-bold text-indigo-300 flex items-center gap-1.5">
+            <i data-lucide="globe" class="w-3.5 h-3.5 text-indigo-400"></i>
+            Deploy to the Entire World (Free 1-Line Tunnel)
+          </span>
+          <p class="text-[11px] text-slate-300">To share with users outside your Wi-Fi anywhere in the world, run this in PowerShell:</p>
+          <div class="p-2 rounded-lg bg-slate-950 font-mono text-[11px] text-emerald-400 flex items-center justify-between">
+            <span>npx localtunnel --port 3000</span>
+            <button onclick="navigator.clipboard.writeText('npx localtunnel --port 3000'); alert('Command copied to clipboard!');" class="text-slate-400 hover:text-white text-[10px] ml-2">Copy</button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Veritas AI">
+  <meta name="theme-color" content="#090d16">
+  <title>Veritas AI - Mobile Assistant</title>
+  
+  <!-- Tailwind CSS & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Marked.js Markdown Engine -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.4); }
+
+    /* Prevent iOS auto-zoom on input focus by guaranteeing 16px text on mobile */
+    input, textarea {
+      font-size: 16px !important;
+    }
+
+    .markdown-body { font-size: 0.875rem; line-height: 1.6; }
+    .markdown-body h1, .markdown-body h2, .markdown-body h3 { color: #f8fafc; font-weight: 700; margin-top: 0.5rem; margin-bottom: 0.25rem; }
+    .markdown-body p { margin-bottom: 0.5rem; }
+    .markdown-body ul, .markdown-body ol { margin-left: 1.25rem; margin-bottom: 0.5rem; list-style-type: disc; }
+    .markdown-body code:not(pre code) { background: rgba(30, 41, 59, 0.8); color: #a5b4fc; padding: 0.15rem 0.3rem; border-radius: 4px; font-family: monospace; font-size: 0.85em; }
+    .markdown-body pre { background: #0b1120 !important; border: 1px solid rgba(51, 65, 85, 0.8); border-radius: 10px; padding: 0.75rem; margin: 0.5rem 0; overflow-x: auto; }
+    .markdown-body table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.8rem; }
+    .markdown-body th, .markdown-body td { border: 1px solid rgba(51, 65, 85, 0.7); padding: 0.35rem 0.5rem; }
+    .markdown-body th { background: rgba(15, 23, 42, 0.8); color: #c7d2fe; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased flex flex-col font-sans selection:bg-brand-500 selection:text-white">
+
+  <!-- Clean Mobile Header -->
+  <header class="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-xl sticky top-0 z-30 h-14 flex items-center justify-between px-3 sm:px-6">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-sky-400 p-[1px] shadow-md shadow-brand-500/20">
+        <div class="w-full h-full bg-slate-950 rounded-[11px] flex items-center justify-center">
+          <i data-lucide="sparkles" class="w-4 h-4 text-indigo-400"></i>
+        </div>
+      </div>
+      <div>
+        <div class="flex items-center gap-1.5">
+          <span class="font-bold text-sm text-white">Veritas AI</span>
+          <span class="px-1.5 py-0.2 rounded-full text-[9px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            Online
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-1.5">
+      <!-- QR Code Share Button for Phones -->
+      <button id="btnShareQr" class="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition" title="Show QR Code for other phones">
+        <i data-lucide="qr-code" class="w-4 h-4 text-emerald-400"></i>
+      </button>
+
+      <!-- New Chat Button -->
+      <button id="btnNewChat" class="px-2.5 py-1 text-xs rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 flex items-center gap-1 transition">
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+        <span>New</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Chat Container Area -->
+  <main class="flex-1 flex flex-col max-w-3xl w-full mx-auto p-4 sm:p-6 overflow-hidden">
+    
+    <!-- Messages Scroll Thread -->
+    <div id="messagesThread" class="flex-1 overflow-y-auto space-y-4 pr-1 pb-4">
+      
+      <!-- Welcome Hero Message -->
+      <div class="p-5 rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950 border border-slate-800 text-slate-300 space-y-3 shadow-lg">
+        <div class="flex items-center gap-2.5 text-brand-400 font-bold text-sm">
+          <i data-lucide="bot" class="w-5 h-5"></i>
+          <span>Welcome to Veritas AI!</span>
+        </div>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          I am your autonomous AI assistant. I can answer questions, perform exact mathematical calculations, search verified facts, query uploaded knowledge, and analyze data for you.
+        </p>
+        <div class="pt-2 border-t border-slate-800/80">
+          <span class="text-[10px] uppercase font-bold text-slate-500 tracking-wider block mb-2">Try asking:</span>
+          <div class="flex flex-wrap gap-2 text-xs">
+            <button onclick="fillPrompt('hi')" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800 text-slate-300 transition">👋 Hi</button>
+            <button onclick="fillPrompt('What is ((4890 * 1.18) + 720) / 4?')" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800 text-slate-300 transition">🧮 Math Calculation</button>
+            <button onclick="fillPrompt('What is Agentic AI?')" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800 text-slate-300 transition">🛡️ What is Agentic AI?</button>
+            <button onclick="fillPrompt('Fetch live system metrics')" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800 text-slate-300 transition">🖥️ System Status</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Status Indicator -->
+    <div id="typingIndicator" class="hidden items-center gap-2 py-1.5 px-3 text-xs text-brand-400 font-medium">
+      <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
+      <span id="typingText">Veritas is thinking...</span>
+    </div>
+
+    <!-- Input Form -->
+    <div class="pt-2">
+      <form id="chatForm" class="flex items-center gap-2">
+        <div class="relative flex-1">
+          <input 
+            type="text" 
+            id="chatInput" 
+            placeholder="Type your message here..." 
+            class="w-full bg-slate-900/90 border border-slate-800 text-sm text-white rounded-xl pl-4 pr-10 py-3.5 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition placeholder:text-slate-500 shadow-inner"
+            autocomplete="off"
+            required
+          >
+        </div>
+        <button 
+          type="submit" 
+          id="sendBtn" 
+          class="px-5 py-3.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white rounded-xl text-sm font-bold transition flex items-center gap-2 shadow-lg shadow-brand-500/20 disabled:opacity-50"
+        >
+          <span>Send</span>
+          <i data-lucide="send" class="w-4 h-4"></i>
+        </button>
+      </form>
+      <div class="text-[10px] text-center text-slate-500 mt-2">
+        Powered by Veritas Enterprise AI Agentic Engine
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    lucide.createIcons();
+
+    // Generate or retrieve persistent user session ID
+    let guestSessionId = localStorage.getItem('vpro_user_session');
+    if (!guestSessionId) {
+      guestSessionId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+      localStorage.setItem('vpro_user_session', guestSessionId);
+    }
+
+    const messagesThread = document.getElementById('messagesThread');
+    const chatForm = document.getElementById('chatForm');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const typingIndicator = document.getElementById('typingIndicator');
+    const btnNewChat = document.getElementById('btnNewChat');
+
+    // Load History for this specific user session
+    async function loadUserHistory() {
+      try {
+        const res = await fetch(`/api/sessions/${guestSessionId}/messages`);
+        if (res.ok) {
+          const messages = await res.json();
+          if (messages && messages.length > 0) {
+            messages.forEach(m => appendMessage(m.role, m.content));
+          }
+        }
+      } catch (err) {
+        console.error('History load error:', err);
+      }
+    }
+    loadUserHistory();
+
+    function fillPrompt(txt) {
+      chatInput.value = txt;
+      chatInput.focus();
+    }
+
+    function appendMessage(role, content) {
+      const isUser = role === 'user';
+      const wrapper = document.createElement('div');
+      wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'} w-full`;
+
+      const bubble = document.createElement('div');
+      bubble.className = `max-w-[85%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed space-y-2 shadow-lg ${
+        isUser 
+          ? 'bg-gradient-to-r from-brand-600 to-indigo-600 text-white rounded-br-none' 
+          : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none'
+      }`;
+
+      const parsedHtml = marked.parse(content || '');
+      bubble.innerHTML = `
+        <div class="font-semibold text-[11px] ${isUser ? 'text-brand-100' : 'text-brand-400'} flex items-center gap-1.5 pb-1 border-b ${isUser ? 'border-brand-400/30' : 'border-slate-800'}">
+          <i data-lucide="${isUser ? 'user' : 'sparkles'}" class="w-3.5 h-3.5"></i>
+          <span>${isUser ? 'You' : 'Veritas AI'}</span>
+        </div>
+        <div class="markdown-body">${parsedHtml}</div>
+      `;
+
+      wrapper.appendChild(bubble);
+      messagesThread.appendChild(wrapper);
+      messagesThread.scrollTop = messagesThread.scrollHeight;
+      lucide.createIcons();
+    }
+
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const message = chatInput.value.trim();
+      if (!message) return;
+
+      appendMessage('user', message);
+      chatInput.value = '';
+      chatInput.disabled = true;
+      sendBtn.disabled = true;
+
+      typingIndicator.classList.remove('hidden');
+      typingIndicator.classList.add('flex');
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: guestSessionId,
+            message: message,
+            persona: 'general'
+          })
+        });
+
+        const data = await res.json();
+        appendMessage('assistant', data.response || data.error);
+      } catch (err) {
+        appendMessage('assistant', '⚠️ Connection error. Please try again.');
+      } finally {
+        typingIndicator.classList.add('hidden');
+        typingIndicator.classList.remove('flex');
+        chatInput.disabled = false;
+        sendBtn.disabled = false;
+        chatInput.focus();
+      }
+    });
+
+    btnNewChat.addEventListener('click', () => {
+      guestSessionId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+      localStorage.setItem('vpro_user_session', guestSessionId);
+      messagesThread.innerHTML = `
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
+          Started a new private conversation. How can I help you?
+        </div>
+      `;
+    });
+
+    // QR Code Sharing Logic for Phones
+    const btnShareQr = document.getElementById('btnShareQr');
+    const qrModal = document.getElementById('qrModal');
+    const btnCloseQrModal = document.getElementById('btnCloseQrModal');
+    const qrImage = document.getElementById('qrImage');
+    const qrUrlText = document.getElementById('qrUrlText');
+
+    btnShareQr.addEventListener('click', () => {
+      const currentUrl = window.location.href;
+      qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(currentUrl)}`;
+      qrUrlText.innerText = currentUrl;
+      qrModal.classList.remove('hidden');
+    });
+    btnCloseQrModal.addEventListener('click', () => qrModal.classList.add('hidden'));
+  </script>
+
+  <!-- QR Share Modal -->
+  <div id="qrModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xs w-full p-5 shadow-2xl text-center space-y-4">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <h3 class="font-bold text-xs text-white flex items-center gap-1.5">
+          <i data-lucide="smartphone" class="w-4 h-4 text-emerald-400"></i> Open on Any Phone
+        </h3>
+        <button id="btnCloseQrModal" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <p class="text-[11px] text-slate-400">Scan this QR code with your phone camera to open this AI assistant instantly:</p>
+      <div class="p-2 bg-white rounded-xl inline-block shadow-inner">
+        <img id="qrImage" src="" alt="QR Code" class="w-48 h-48 block mx-auto">
+      </div>
+      <div class="text-[10px] text-slate-400 truncate bg-slate-950 p-1.5 rounded font-mono" id="qrUrlText"></div>
+    </div>
+  </div>
+</body>
+</html>

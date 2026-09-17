@@ -1,0 +1,145 @@
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.4);
+}
+
+/* Persona Buttons */
+.persona-btn {
+  background-color: rgba(15, 23, 42, 0.6);
+  border-color: rgba(30, 41, 59, 0.8);
+  color: #94a3b8;
+}
+.persona-btn:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #e2e8f0;
+}
+.persona-btn.active {
+  background-color: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.6);
+  color: #c7d2fe;
+}
+
+/* Drawer Tabs */
+.drawer-tab {
+  color: #64748b;
+  border-color: transparent;
+}
+.drawer-tab:hover {
+  color: #cbd5e1;
+}
+.drawer-tab.active {
+  color: #818cf8;
+  border-color: #6366f1;
+}
+
+/* Markdown prose styling */
+.markdown-body {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
+  color: #f1f5f9;
+  font-weight: 700;
+  margin-top: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+.markdown-body h1 { font-size: 1.25rem; }
+.markdown-body h2 { font-size: 1.1rem; }
+.markdown-body h3 { font-size: 0.95rem; }
+.markdown-body p { margin-bottom: 0.6rem; }
+.markdown-body ul, .markdown-body ol {
+  margin-left: 1.25rem;
+  margin-bottom: 0.6rem;
+  list-style-type: disc;
+}
+.markdown-body ol {
+  list-style-type: decimal;
+}
+.markdown-body li {
+  margin-bottom: 0.25rem;
+}
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.8rem;
+}
+.markdown-body th, .markdown-body td {
+  border: 1px solid rgba(51, 65, 85, 0.8);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+}
+.markdown-body th {
+  background-color: rgba(15, 23, 42, 0.8);
+  color: #c7d2fe;
+  font-weight: 600;
+}
+.markdown-body td {
+  background-color: rgba(15, 23, 42, 0.4);
+}
+.markdown-body code:not(pre code) {
+  background-color: rgba(30, 41, 59, 0.8);
+  color: #a5b4fc;
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.375rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.825em;
+}
+.markdown-body pre {
+  background-color: #0f172a !important;
+  border: 1px solid rgba(51, 65, 85, 0.8);
+  border-radius: 0.75rem;
+  padding: 0.85rem;
+  margin: 0.75rem 0;
+  overflow-x: auto;
+  position: relative;
+}
+.markdown-body pre code {
+  font-size: 0.8rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.markdown-body blockquote {
+  border-left: 3px solid #6366f1;
+  padding-left: 0.75rem;
+  color: #94a3b8;
+  margin: 0.6rem 0;
+  font-style: italic;
+}
+
+/* Copy Code Button */
+.copy-code-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  font-size: 10px;
+  padding: 3px 8px;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(71, 85, 105, 0.6);
+  border-radius: 6px;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.copy-code-btn:hover {
+  background: #6366f1;
+  color: #ffffff;
+}
+
+/* Reasoning Details Card */
+details.reasoning-card summary::-webkit-details-marker {
+  display: none;
+}
+details.reasoning-card summary {
+  list-style: none;
+}
