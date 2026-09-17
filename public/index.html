@@ -747,16 +747,39 @@
           <input id="inputIframeCode" type="text" readonly class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sky-300 font-mono text-[11px] select-all">
         </div>
 
-        <!-- 4. Worldwide Internet Tunnel -->
-        <div class="p-3.5 rounded-xl bg-indigo-950/30 border border-indigo-500/30 space-y-2">
-          <span class="font-bold text-indigo-300 flex items-center gap-1.5">
-            <i data-lucide="globe" class="w-3.5 h-3.5 text-indigo-400"></i>
-            Deploy to the Entire World (Free 1-Line Tunnel)
+        <!-- 4. 24/7 Cloud Hosting (Runs When PC Is Closed) -->
+        <div class="p-3.5 rounded-xl bg-gradient-to-r from-purple-950/40 via-slate-950 to-indigo-950/40 border border-purple-500/30 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-purple-300 flex items-center gap-1.5">
+              <i data-lucide="cloud-lightning" class="w-4 h-4 text-purple-400"></i>
+              Run 24/7 in Cloud (Even When PC Is Closed / Off)
+            </span>
+            <span class="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-semibold">100% Free Forever</span>
+          </div>
+          <p class="text-[11px] text-slate-300">
+            Deploy to Render.com or Railway with 1 click so your chatbot runs 24/7 in the cloud without needing your computer running:
+          </p>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <a href="https://render.com" target="_blank" class="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:border-purple-500/50 flex items-center justify-between text-slate-200 transition">
+              <span>🚀 Deploy on Render</span>
+              <i data-lucide="external-link" class="w-3 h-3 text-purple-400"></i>
+            </a>
+            <a href="https://railway.app" target="_blank" class="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:border-purple-500/50 flex items-center justify-between text-slate-200 transition">
+              <span>🚂 Deploy on Railway</span>
+              <i data-lucide="external-link" class="w-3 h-3 text-purple-400"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- 5. Temporary 1-Line Tunnel -->
+        <div class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
+          <span class="font-bold text-slate-300 flex items-center gap-1.5">
+            <i data-lucide="terminal" class="w-3.5 h-3.5 text-amber-400"></i>
+            Temporary Tunnel (While PC is Open)
           </span>
-          <p class="text-[11px] text-slate-300">To share with users outside your Wi-Fi anywhere in the world, run this in PowerShell:</p>
-          <div class="p-2 rounded-lg bg-slate-950 font-mono text-[11px] text-emerald-400 flex items-center justify-between">
+          <div class="p-2 rounded-lg bg-slate-900 font-mono text-[11px] text-emerald-400 flex items-center justify-between">
             <span>npx localtunnel --port 3000</span>
-            <button onclick="navigator.clipboard.writeText('npx localtunnel --port 3000'); alert('Command copied to clipboard!');" class="text-slate-400 hover:text-white text-[10px] ml-2">Copy</button>
+            <button onclick="navigator.clipboard.writeText('npx localtunnel --port 3000'); alert('Copied!');" class="text-slate-400 hover:text-white text-[10px] ml-2">Copy</button>
           </div>
         </div>
 
