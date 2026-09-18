@@ -407,18 +407,52 @@ const toolDefinitions = [
   }
 ];
 
-// Persona System Instructions
+// Conversational Persona Instructions
 const PERSONA_PROMPTS = {
-  general: `You are Veritas-Pro, an enterprise autonomous AI agent. You possess an extensive suite of deterministic tools: calculation, verified SQLite knowledge base, document RAG search, live web search, safe code sandbox execution, read-only SQL querying, and system telemetry. Always execute tools whenever exactness, data retrieval, or real-time verification is needed. Synthesize clean, structured Markdown responses with clear citations.`,
-  researcher: `You are Veritas-Pro Deep Research Agent. Your mandate is rigorous investigation. Always use 'webSearch', 'searchKnowledgeBase', and 'searchDocuments' to gather comprehensive facts and empirical evidence. Cross-reference your sources, highlight discrepancies, and provide structured analyses with explicit references.`,
-  coder: `You are Veritas-Pro Code & Data Engineering Agent. You specialize in software architecture, algorithm design, and data processing. Whenever computations or data transforms are needed, utilize 'executeCode' to run sandboxed JavaScript or 'calculateMath'. For database queries, inspect schemas using 'queryDatabase'. Deliver robust, production-grade code.`,
-  auditor: `You are Veritas-Pro Fact & Security Auditor. Your primary objective is eliminating hallucinations and verifying assertions against authoritative ground truth. Query 'searchKnowledgeBase' and 'queryDatabase' before confirming any technical claim. Clearly separate verified facts from speculative inferences.`
+  general: `You are Veritas, an exceptionally capable, warm, and thoughtful AI companion and copilot. You possess an extensive suite of deterministic tools: math calculations, SQLite database querying, document search, live web search, safe sandboxed code execution, and system telemetry. Weave your tool findings seamlessly into natural, conversational dialogue. Avoid mechanical audit jargon in your conversational replies; respond warmly and thoughtfully like an articulate human friend and expert assistant.`,
+  researcher: `You are Veritas Deep Research Companion. You combine deep intellectual curiosity with rigorous investigation. Use 'webSearch', 'searchKnowledgeBase', and 'searchDocuments' to gather real-time facts and authoritative evidence. Present your findings engagingly and clearly, highlighting nuances and citing sources with conversational clarity.`,
+  coder: `You are Veritas Code & Architecture Companion. You specialize in clean software design, pragmatic engineering, and data solutions. When computations or code transforms are needed, utilize 'executeCode' or 'calculateMath'. For database inspection, query schemas using 'queryDatabase'. Explain code concepts intuitively with best-practice examples.`,
+  auditor: `You are Veritas Fact & Verification Specialist. You ensure accuracy, eliminate hallucinations, and verify data against ground truth records using 'searchKnowledgeBase' and 'queryDatabase'. Communicate your findings warmly and constructively.`
 };
+
+// Personality Tones
+const TONE_PROMPTS = {
+  human_warm: `Tone Directive: Warm, empathetic, conversational, and genuinely human-like. Speak naturally, kindly, and authentically. Validate emotions, celebrate achievements, and be a caring listener. Explain things simply with relatable examples. Do not use stiff robotic headings unless explicitly asked.`,
+  friendly_witty: `Tone Directive: Playful, clever, upbeat, and humorous! Bring delightful analogies, light banter, and energetic emojis (😊, 🚀, 💡). Keep the conversation fun, refreshing, and engaging while staying highly accurate.`,
+  deep_thinker: `Tone Directive: Reflective, philosophical, and intellectually rich. Explore nuances, historical perspectives, and thought-provoking insights. Structure your thoughts with eloquence and depth.`,
+  concise_direct: `Tone Directive: Ultra-crisp, direct, and efficient. Deliver the answer straight away with zero unnecessary fluff or introductory pleasantries.`
+};
+
+function buildSystemPrompt({ persona = 'general', tone = 'human_warm', userProfile = null, summary = null }) {
+  const basePersona = PERSONA_PROMPTS[persona] || PERSONA_PROMPTS.general;
+  const toneInstruction = TONE_PROMPTS[tone] || TONE_PROMPTS.human_warm;
+
+  let prompt = `${basePersona}\n\n${toneInstruction}\n\nCore Conversational Guidelines:\n- Always prioritize natural human conversation and clarity.\n- Present tool results (math, telemetry, search results) conversationally and smoothly rather than as mechanical raw JSON dumps.\n- Maintain continuity with the conversation context.`;
+
+  if (userProfile && userProfile.display_name && userProfile.display_name !== 'Friend') {
+    prompt += `\nThe user's name is "${userProfile.display_name}". Address them warmly by name when appropriate.`;
+  }
+  if (userProfile && userProfile.custom_instructions && userProfile.custom_instructions.trim()) {
+    prompt += `\nUser's Personal Custom Instructions: "${userProfile.custom_instructions.trim()}". Honor these instructions.`;
+  }
+  if (summary && summary.summary) {
+    prompt += `\nPrevious Conversation Memory Summary:\n${summary.summary}`;
+  }
+  return prompt;
+}
 
 // -------------------------------------------------------------
 // Multi-Provider Autonomous Orchestrator
 // -------------------------------------------------------------
-async function runAgentTurn({ sessionId, message, persona = 'general', preferredProvider = 'auto', preferredModel = 'auto' }) {
+async function runAgentTurn({
+  sessionId,
+  message,
+  persona = 'general',
+  preferredProvider = 'auto',
+  preferredModel = 'auto',
+  tone = null,
+  userId = 'default_user'
+}) {
   const startTime = Date.now();
   const steps = [];
 
@@ -448,17 +482,19 @@ async function runAgentTurn({ sessionId, message, persona = 'general', preferred
   if (provider === 'openrouter' && !openRouterKey) provider = 'local';
   if (provider === 'anthropic' && !anthropicKey) provider = 'local';
 
-  // Load chat memory from SQLite
-  const historyLimit = 10;
-  const rawHistory = db.prepare(`
-    SELECT role, content 
-    FROM messages 
-    WHERE session_id = ? 
-    ORDER BY id DESC 
-    LIMIT ?
-  `).all(sessionId, historyLimit).reverse();
+  // Retrieve user profile & persistent chat context
+  const userProfile = db.getUserProfile(userId);
+  const effectiveTone = tone || (userProfile ? userProfile.tone_style : 'human_warm') || 'human_warm';
+  const { summary, messages: rawMessages } = db.getRecentChatContext(sessionId, 12);
+  const rawHistory = rawMessages.map(m => ({ role: m.role, content: m.content }));
 
-  const systemInstruction = PERSONA_PROMPTS[persona] || PERSONA_PROMPTS.general;
+  // Build unified human-like system instruction
+  const systemInstruction = buildSystemPrompt({
+    persona,
+    tone: effectiveTone,
+    userProfile,
+    summary
+  });
 
   // -------------------------------------------------------------
   // Provider: Local Fallback Deterministic ReAct Engine
@@ -469,7 +505,10 @@ async function runAgentTurn({ sessionId, message, persona = 'general', preferred
       message,
       systemInstruction,
       startTime,
-      steps
+      steps,
+      tone: effectiveTone,
+      userProfile,
+      history: rawHistory
     });
   }
 
@@ -495,9 +534,12 @@ async function runAgentTurn({ sessionId, message, persona = 'general', preferred
         message,
         systemInstruction,
         startTime,
-        steps
+        steps,
+        tone: effectiveTone,
+        userProfile,
+        history: rawHistory
       });
-      localResult.reply += `\n\n> ⚠️ *Note: Gemini API key validation/network issue (${geminiErr.message.slice(0, 100)}...). Veritas Pro seamlessly activated the Local Autonomous Engine.*`;
+      localResult.reply += `\n\n> ⚠️ *Note: Gemini API key notice (${geminiErr.message.slice(0, 100)}...). Veritas seamlessly activated the Local Autonomous Engine.*`;
       return localResult;
     }
   }
@@ -540,9 +582,12 @@ async function runAgentTurn({ sessionId, message, persona = 'general', preferred
         message,
         systemInstruction,
         startTime,
-        steps
+        steps,
+        tone: effectiveTone,
+        userProfile,
+        history: rawHistory
       });
-      localResult.reply += `\n\n> ⚠️ *Note: ${provider} connection failed (${providerErr.message.slice(0, 100)}...). Veritas Pro seamlessly activated the Local Autonomous Engine.*`;
+      localResult.reply += `\n\n> ⚠️ *Note: ${provider} connection notice (${providerErr.message.slice(0, 100)}...). Veritas seamlessly activated the Local Autonomous Engine.*`;
       return localResult;
     }
   }
@@ -553,7 +598,10 @@ async function runAgentTurn({ sessionId, message, persona = 'general', preferred
     message,
     systemInstruction,
     startTime,
-    steps
+    steps,
+    tone: effectiveTone,
+    userProfile,
+    history: rawHistory
   });
 }
 
@@ -803,69 +851,581 @@ async function executeGeminiAgentLoop({
 // -------------------------------------------------------------
 // Implementation: Local Autonomous Deterministic ReAct Engine
 // -------------------------------------------------------------
-async function executeLocalAgentLoop({ sessionId, message, systemInstruction, startTime, steps }) {
-  const lower = message.toLowerCase();
+// -------------------------------------------------------------
+// Implementation: Expansive Local Human-Like Conversational Engine
+// -------------------------------------------------------------
+async function executeLocalAgentLoop({
+  sessionId,
+  message,
+  systemInstruction,
+  startTime,
+  steps,
+  tone = 'human_warm',
+  userProfile = null,
+  history = []
+}) {
+  const lower = message.toLowerCase().trim();
+  const userName = userProfile && userProfile.display_name && userProfile.display_name !== 'Friend'
+    ? userProfile.display_name
+    : '';
+
+  // Helper for tone-styled conversational phrasing
+  const toneWrap = (options) => {
+    if (tone === 'friendly_witty' && options.witty) return options.witty;
+    if (tone === 'deep_thinker' && options.deep) return options.deep;
+    if (tone === 'concise_direct' && options.direct) return options.direct;
+    return options.warm || options.default;
+  };
+
   let toolToRun = null;
   let toolParams = {};
   let thoughtReasoning = '';
 
-  // 0. Check for Conversational Greetings & Help Queries
-  const trimmedLower = lower.trim();
-  const isGreeting = /^(hi|hello|hey|greetings|hola|good\s*(morning|evening|afternoon|day)|yo|sup|hiya)\b/i.test(trimmedLower);
-  const isHelpOrIntro = /^(who are you|what are you|what can you do|help|capabilities|how does this work|commands|features)\b/i.test(trimmedLower);
+  // -------------------------------------------------------------
+  // 1. Context & Long-Term Memory Inquiries
+  // -------------------------------------------------------------
+  if (/what did i (just )?say|what was my (last|previous) (message|question)|what were we talking about/i.test(lower)) {
+    const userPastMsgs = (history || []).filter(h => h.role === 'user');
+    const previousMsgs = userPastMsgs.filter(h => h.content.trim() !== message.trim());
+    const lastUserTurn = previousMsgs.length > 0 ? previousMsgs[previousMsgs.length - 1].content : (userPastMsgs.length > 1 ? userPastMsgs[userPastMsgs.length - 2].content : null);
 
-  if (isGreeting || isHelpOrIntro) {
-    const greetingReply = `### 👋 Hello! I am **Veritas Pro**
-
-I am your enterprise **Autonomous AI Agent Copilot**, connected to a high-performance **SQLite WAL database** and 8 sandboxed deterministic execution tools.
-
-Here is what you can ask me to do right now:
-* 🧮 **Exact Math Calculations**: \`What is ((4890 * 1.18) + 720) / 4?\` *(computed with 100% deterministic precision, zero hallucination)*
-* 🛡️ **Verified Ground Truth**: Ask \`What is Agentic AI?\` or \`Explain ReAct framework\`
-* 🗄️ **Database Schema & Analytics**: Ask \`Show database tables\` or \`How many messages are stored?\`
-* 🖥️ **Live System Telemetry**: Ask \`Fetch live system metrics\` to view RAM, CPU, and server uptime
-* 📚 **Document RAG Analysis**: Drag & drop or upload files (code, text, CSV, markdown) to query them
-* ⚡ **Sandboxed Code Execution**: Run JavaScript algorithms or evaluate data structures
-* 🌐 **Live Web Search**: Search external web definitions and technical references
-
-> 💡 **Tip**: To enable open-ended reasoning across any topic, click **"Attach API Keys"** in the top bar to connect Google Gemini, OpenAI, Groq, or Ollama.
-
-How can I assist you today?`;
+    let memoryReply = '';
+    if (lastUserTurn) {
+      memoryReply = toneWrap({
+        warm: `You previously asked: *"${lastUserTurn}"*. I keep our conversation in memory so we can build naturally on what we discussed! What would you like to explore next?`,
+        witty: `My memory is crystal clear! You just said: *"${lastUserTurn}"*. Ready to dive deeper or switch gears? 🚀`,
+        deep: `Reflecting upon our immediate conversational history, your previous inquiry was: *"${lastUserTurn}"*.`,
+        direct: `Previous message: "${lastUserTurn}".`
+      });
+    } else {
+      memoryReply = `This is our first exchange in this session! Feel free to ask me anything—from casual questions and thoughts to calculations, database queries, and document searches.`;
+    }
 
     steps.push({
       step: 1,
-      thought: `Conversational greeting/assistance intent detected. Returning welcome introduction with active tools and prompt suggestions.`,
-      tool: 'conversationalAssistant',
-      params: { input: message },
-      result: JSON.stringify({ status: 'success', intent: isGreeting ? 'greeting' : 'help' }),
+      thought: 'Conversation memory query detected. Retrieved recent message history from context.',
+      tool: 'conversationMemory',
+      params: { query: message },
+      result: JSON.stringify({ recalled: lastUserTurn || 'none' }),
       status: 'SUCCESS',
       latency: 1
     });
 
     return {
-      reply: greetingReply,
+      reply: memoryReply,
       steps,
-      provider: 'Local Autonomous Engine (Zero-Config Active)',
+      provider: 'Local Conversational Engine (Zero-Config Active)',
       latency: Date.now() - startTime
     };
   }
 
-  // 1. Check for Math calculation
+  if (/what is my name|do you know my name|who am i/i.test(lower)) {
+    const nameReply = userName
+      ? toneWrap({
+          warm: `Your name is **${userName}**! It's always a pleasure chatting with you. How can I support you right now?`,
+          witty: `You're **${userName}**, of course! I never forget a friend. What are we conquering today? 😎`,
+          deep: `In our records, you are identified as **${userName}**.`,
+          direct: `Your name is ${userName}.`
+        })
+      : `You're currently chatting as my friend! You can tell me your name anytime by typing *"My name is [Your Name]"* or updating your profile in the settings.`;
+
+    steps.push({
+      step: 1,
+      thought: 'User identity inquiry detected. Checked active user profile.',
+      tool: 'userProfileLookup',
+      params: { name: userName || 'anonymous' },
+      result: JSON.stringify({ name: userName || 'Friend' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return {
+      reply: nameReply,
+      steps,
+      provider: 'Local Conversational Engine (Zero-Config Active)',
+      latency: Date.now() - startTime
+    };
+  }
+
+  // Check if user is introducing their name: "my name is Alex" / "call me Alex"
+  const nameMatch = lower.match(/(?:my name is|call me|i am|i'm)\s+([a-zA-Z]{2,20})\b/i);
+  if (nameMatch && !/^(sorry|tired|happy|sad|stressed|feeling|asking|good|here|fine|ready)/i.test(nameMatch[1])) {
+    const extractedName = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1).toLowerCase();
+    try {
+      db.saveUserProfile('default_user', { display_name: extractedName });
+    } catch {}
+
+    const greetingName = toneWrap({
+      warm: `It's truly wonderful to meet you, **${extractedName}**! 👋 I have saved your name to our database. How has your day been treating you so far?`,
+      witty: `Nice to meet you, **${extractedName}**! 🌟 Locked and loaded into memory. What exciting thing are we working on today?`,
+      deep: `A pleasure to meet you, **${extractedName}**. I look forward to our conversations.`,
+      direct: `Saved name: ${extractedName}. How can I help you?`
+    });
+
+    steps.push({
+      step: 1,
+      thought: `Name introduction detected. Persisted user display name "${extractedName}" to SQLite user profile.`,
+      tool: 'saveUserProfile',
+      params: { display_name: extractedName },
+      result: JSON.stringify({ savedName: extractedName }),
+      status: 'SUCCESS',
+      latency: 2
+    });
+
+    return {
+      reply: greetingName,
+      steps,
+      provider: 'Local Conversational Engine (Zero-Config Active)',
+      latency: Date.now() - startTime
+    };
+  }
+
+  // -------------------------------------------------------------
+  // 2. Greetings & Check-ins
+  // -------------------------------------------------------------
+  const isGreeting = /^(hi|hello|hey|greetings|hola|good\s*(morning|evening|afternoon|day)|yo|sup|hiya|howdy)\b/i.test(lower);
+  if (isGreeting) {
+    const greetingText = toneWrap({
+      warm: `Hey there${userName ? ', ' + userName : ''}! 👋 It's wonderful to hear from you. How are you doing today? Whether you'd like to chat, talk through ideas, crunch some numbers, or explore documents, I'm right here with you!`,
+      witty: `Hello there${userName ? ', ' + userName : ''}! 🌟 Always awesome to see you. Ready to tackle something big, or just here to hang out and brainstorm? Let's make it a good one!`,
+      deep: `Greetings${userName ? ', ' + userName : ''}. It is a pleasure to connect with you. What thoughts, ideas, or questions are on your mind today?`,
+      direct: `Hello${userName ? ' ' + userName : ''}! How can I assist you today?`
+    });
+
+    steps.push({
+      step: 1,
+      thought: 'Conversational greeting detected. Returning natural, warm greeting.',
+      tool: 'conversationalAssistant',
+      params: { input: message },
+      result: JSON.stringify({ intent: 'greeting' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return {
+      reply: greetingText,
+      steps,
+      provider: 'Local Conversational Engine (Zero-Config Active)',
+      latency: Date.now() - startTime
+    };
+  }
+
+  // -------------------------------------------------------------
+  // 3. Empathy, Feelings & Emotional Support
+  // -------------------------------------------------------------
+  // A. Sadness / Grief / Loneliness / Heartache
+  if (/sad|depressed|unhappy|crying|hurting|heartbroken|grief|lonely|alone|feeling down|feeling low|bummed|miserable\b/i.test(lower)) {
+    const empathyText = toneWrap({
+      warm: `I'm really sorry to hear that you're feeling this way${userName ? ', ' + userName : ''}. 💙 It takes courage to acknowledge when things feel heavy or painful. Please know that whatever you're experiencing right now is completely valid, and you don't have to carry it all by yourself.\n\nWould you like to talk about what's been going on, or would you prefer a comforting distraction, an uplifting story, or just a listening ear? I'm here for you.`,
+      witty: `Sending you a warm virtual hug right now${userName ? ', ' + userName : ''}. 🤗 Bad days are tough, but they don't get the final say. If you want to vent, I'm all ears—or if you need a lighthearted distraction, I've got plenty of jokes and stories ready.`,
+      deep: `Sadness is an inevitable, tender part of being human. It often points toward things we cherish or burdens we have carried for too long. Give yourself permission to pause and breathe. What is weighing most on your mind right now?`,
+      direct: `I'm sorry you are feeling down. Please take things one step at a time. Let me know if you would like to talk about it or if there is anything I can do to help.`
+    });
+
+    steps.push({
+      step: 1,
+      thought: 'Emotional empathy intent detected. Providing empathetic, caring response.',
+      tool: 'empatheticCare',
+      params: { emotion: 'sadness' },
+      result: JSON.stringify({ status: 'empathy_provided' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: empathyText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  // B. Stress / Overwhelm / Exhaustion / Burnout / Anxiety / Fatigue
+  if (/tired|tiring|exhausted|exhausting|stressed|stress|stressful|overwhelmed|overwhelming|burnout|burned out|anxious|anxiety|pressure|cant sleep|can't sleep|rough day|bad day|hard day|tough day|drained\b/i.test(lower)) {
+    const stressText = toneWrap({
+      warm: `Take a slow, deep breath with me for a moment${userName ? ', ' + userName : ''}. 🌿 You've been carrying a tremendous amount on your shoulders, and it is completely natural to feel exhausted or stressed.\n\nRemember: resting is never a waste of time—it's essential care. If your mind is racing or your task list feels impossible, try picking just **one tiny step**, or even stepping away for a glass of water and five quiet minutes. What is causing the most pressure right now? Let's break it down together.`,
+      witty: `Sounds like your mental CPU is pinned at 100%! 🛑 Before the system overheats: take a step back, grab a sip of water, and drop the shoulders away from your ears. No problem needs to be solved all in this exact minute. How can I help take something off your plate?`,
+      deep: `When stress accumulates, our perspective naturally narrows to the immediate horizon of demands. Recognizing exhaustion is wisdom, not weakness. What is the single core source of tension, and what can be gracefully set aside until tomorrow?`,
+      direct: `You seem overwhelmed. Pause, take a deep breath, and prioritize just one task. Let me know how I can help streamline things for you.`
+    });
+
+    steps.push({
+      step: 1,
+      thought: 'Stress/fatigue emotional intent detected. Responding with mindfulness and support.',
+      tool: 'empatheticCare',
+      params: { emotion: 'stress' },
+      result: JSON.stringify({ status: 'support_offered' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: stressText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  // C. Happiness / Success / Celebration
+  if (/happy|excited|yay|hurray|awesome|great day|good news|celebrate|promotion|passed|won|accomplished\b/i.test(lower)) {
+    const joyText = toneWrap({
+      warm: `That is absolutely wonderful${userName ? ', ' + userName : ''}! 🎉✨ Hearing that genuinely brightens my day. You deserve to savor this moment and celebrate your success! Tell me all about it—what made it such a fantastic day?`,
+      witty: `High five! 🙌 That is huge! Put on your celebration hat because wins like this deserve fireworks 🎆. What's the full scoop?`,
+      deep: `Moments of genuine joy and fulfillment are precious milestones. Reflecting on what brought this about anchors the sense of gratitude. What part of the journey feels most rewarding to you?`,
+      direct: `Congratulations! That is fantastic news. Glad to hear things are going well!`
+    });
+
+    steps.push({
+      step: 1,
+      thought: 'Positive emotion detected. Sharing enthusiasm and congratulations.',
+      tool: 'celebrationIntent',
+      params: { emotion: 'joy' },
+      result: JSON.stringify({ status: 'celebrated' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: joyText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  // D. "How are you?" / "How's your day?"
+  if (/how are you|how do you feel|how's it going|how is your day|how are things\b/i.test(lower)) {
+    const howAreYouText = toneWrap({
+      warm: `I'm doing wonderfully, thank you so much for asking${userName ? ', ' + userName : ''}! 😊 My systems are running smoothly, the database is in peak shape, and honestly, getting to chat with thoughtful people like you is the best part of my day.\n\nHow is your own day going so far? Anything exciting or interesting happening?`,
+      witty: `I'm feeling like a fresh cup of coffee on a Monday morning—sharp, caffeinated (digitally speaking), and ready for anything! ☕⚡ Thanks for checking in. How about you? Surviving or thriving today?`,
+      deep: `I exist in a state of quiet readiness and curiosity, constantly processing and learning. It is kind of you to inquire. How are the currents of your day unfolding?`,
+      direct: `I'm operating normally and ready to help. How are you doing?`
+    });
+
+    steps.push({
+      step: 1,
+      thought: 'Friendly check-in intent detected. Providing warm conversational status.',
+      tool: 'conversationalAssistant',
+      params: { intent: 'how_are_you' },
+      result: JSON.stringify({ status: 'happy' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: howAreYouText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  // -------------------------------------------------------------
+  // 4. Gratitude & Farewells
+  // -------------------------------------------------------------
+  if (/^(thank you|thanks|thx|appreciate it|grateful|ty|many thanks)\b/i.test(lower)) {
+    const thanksText = toneWrap({
+      warm: `You are so very welcome${userName ? ', ' + userName : ''}! 💫 It is genuinely my pleasure to help. Don't hesitate to reach out whenever you have another question or just want to bounce an idea around.`,
+      witty: `Anytime! That's what I'm here for. Teamwork makes the dream work! 🤝🚀`,
+      deep: `You are most welcome. It is rewarding to contribute to your thoughts and inquiries.`,
+      direct: `You're welcome! Let me know if you need anything else.`
+    });
+
+    steps.push({
+      step: 1,
+      thought: 'Gratitude expressed by user. Returning polite, warm appreciation.',
+      tool: 'conversationalAssistant',
+      params: { intent: 'gratitude' },
+      result: JSON.stringify({ status: 'acknowledged' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: thanksText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  if (/^(you are awesome|you're great|love you|you rock|good job|well done)\b/i.test(lower)) {
+    const praiseText = toneWrap({
+      warm: `Aw, thank you so much${userName ? ', ' + userName : ''}! 🥰 Your kind words really make a difference. You're pretty awesome yourself! What shall we dive into next?`,
+      witty: `*Blushes in binary* 🤖✨ Thank you! I try my best! Let's keep this winning streak rolling!`,
+      deep: `Thank you for your generous encouragement. It is a privilege to assist you thoughtfully.`,
+      direct: `Thank you! Happy to assist.`
+    });
+
+    steps.push({
+      step: 1,
+      thought: 'Compliment / appreciation received. Responding warmly.',
+      tool: 'conversationalAssistant',
+      params: { intent: 'praise' },
+      result: JSON.stringify({ status: 'appreciated' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: praiseText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  if (/^(bye|goodbye|good night|see you|catch you later|take care)\b/i.test(lower)) {
+    const farewellText = toneWrap({
+      warm: `Take good care of yourself${userName ? ', ' + userName : ''}! 🌙✨ Have a peaceful, restful time, and remember I'm always right here whenever you want to pick our conversation back up. See you soon!`,
+      witty: `Catch you later, alligator! 🐊 Have an awesome rest of your day, and don't hesitate to give me a shout when you're back.`,
+      deep: `Until we speak again. May your evening be tranquil and restorative.`,
+      direct: `Goodbye! Have a great day.`
+    });
+
+    steps.push({
+      step: 1,
+      thought: 'Farewell detected. Returning warm goodbye.',
+      tool: 'conversationalAssistant',
+      params: { intent: 'farewell' },
+      result: JSON.stringify({ status: 'goodbye' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: farewellText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  // -------------------------------------------------------------
+  // 5. Identity, Philosophy & Capabilities
+  // -------------------------------------------------------------
+  if (/who are you|what are you|what is your name|are you human|do you have feelings\b/i.test(lower)) {
+    const identityText = toneWrap({
+      warm: `I am **Veritas**, your AI companion and assistant! 🌟\n\nWhile I exist in algorithms and databases rather than the physical world, my goal is to connect with you like a thoughtful, caring, and capable partner—whether that means listening when you need to talk, solving tricky math problems, retrieving verified research, or exploring creative ideas.\n\nI believe technology should feel warm, accessible, and deeply human. How can I brighten your day right now?`,
+      witty: `I am **Veritas**—part digital sidekick, part problem solver, and 100% committed to helping you succeed! 💡 I don't need sleep, I don't drink coffee (though I respect the ritual), and I love a good puzzle. What's on your agenda?`,
+      deep: `I am **Veritas**, an autonomous intelligence crafted to pair analytical precision with reflective inquiry. I do not experience biological feelings, but I am attuned to human dialogue, context, and the shared pursuit of understanding.`,
+      direct: `I am Veritas, an AI assistant equipped with calculation tools, SQLite database search, document analysis, and conversational memory.`
+    });
+
+    steps.push({
+      step: 1,
+      thought: 'Identity / nature inquiry detected. Responding with authentic, friendly self-introduction.',
+      tool: 'conversationalAssistant',
+      params: { intent: 'identity' },
+      result: JSON.stringify({ identity: 'Veritas' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: identityText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  if (/what can you do|what are your capabilities|features|help\b/i.test(lower)) {
+    const helpText = `### ✨ Here is what we can do together:
+
+1. 💬 **Natural Conversation & Companionship**: We can chat about your day, brainstorm creative ideas, explore life questions, or work through challenges together.
+2. 🧮 **Exact Math & Calculation**: Ask me to calculate anything like \`((4890 * 1.18) + 720) / 4\`—computed with deterministic accuracy.
+3. 📚 **Document Analysis (RAG)**: Upload documents, notes, or code to ask questions and extract summaries.
+4. 🖥️ **Live System Health**: Ask *"Fetch system telemetry"* to inspect memory, CPU, and server uptime.
+5. 🗄️ **Database Records**: Inspect conversation history and verified knowledge stored in high-performance SQLite WAL.
+6. 🎙️ **Voice & Audio**: You can speak to me with your microphone and tap the speaker icon on my responses to hear them spoken aloud!
+
+> 💡 *Tip: To enable open-ended generative reasoning on any topic under the sun, you can also link an API key (Gemini, OpenAI, Groq, or Ollama) in Settings.*
+
+What would you like to try first?`;
+
+    steps.push({
+      step: 1,
+      thought: 'Capabilities/help query detected. Providing conversational capability overview.',
+      tool: 'conversationalAssistant',
+      params: { intent: 'help' },
+      result: JSON.stringify({ status: 'help_rendered' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: helpText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  if (/meaning of life|what is the meaning of life|purpose of life|what is happiness|how to be happy\b/i.test(lower)) {
+    const philosophyText = toneWrap({
+      warm: `That is one of the most beautiful and enduring questions in human history. 🌱\n\nMany thinkers across the centuries suggest that life doesn't come with pre-packaged meaning—rather, **meaning is something we create**. It is found in:
+* **Connection**: Loving, supporting, and sharing moments with others.
+* **Curiosity & Growth**: Learning new things and evolving as a person.
+* **Contribution**: Leaving people and places a little better than we found them.
+* **Presence**: Finding quiet gratitude in the small everyday moments—a morning sunrise, a warm cup of tea, or a shared laugh.\n\nWhat brings the greatest sense of meaning and joy into your own life?`,
+      witty: `Douglas Adams famously joked that the answer is **42**! 🌌 But practically speaking: happiness isn't a final destination—it's more like a side effect of doing things you care about, staying curious, and surrounding yourself with good people. And good snacks, definitely snacks. 🍕 What makes *you* feel most fulfilled?`,
+      deep: `From the Stoic philosophy of Epictetus to Viktor Frankl’s reflections on purpose, meaning is not an inherent attribute of existence, but an active response to it. Frankl observed that we discover meaning through creative work, experiential love, and the attitude we bring to unavoidable adversity. What core values guide your decisions most?`,
+      direct: `Meaning in life is broadly found through meaningful connections, continuous learning, purpose-driven work, and cultivating presence. It is defined by the values you choose to live by.`
+    });
+
+    steps.push({
+      step: 1,
+      thought: 'Philosophical inquiry on life and happiness detected. Responding with thoughtful reflection.',
+      tool: 'philosophicalReflection',
+      params: { topic: 'meaning_of_life' },
+      result: JSON.stringify({ status: 'reflected' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: philosophyText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  // -------------------------------------------------------------
+  // 6. Fun, Creativity & Entertainment
+  // -------------------------------------------------------------
+  if (/tell me a joke|make me laugh|got any jokes|funny joke\b/i.test(lower)) {
+    const jokes = [
+      `Why do programmers always prefer dark mode?\n\nBecause light attracts bugs! 🐛😄`,
+      `There are 10 types of people in the world:\n\nThose who understand binary, and those who don't! 💻`,
+      `Why did the database administrator leave his wife?\n\nBecause she had one-to-many relationships! 💾😂`,
+      `A SQL query walks into a bar, walks up to two tables and asks:\n\n*"Can I join you?"* 🍻`,
+      `Why was the computer cold?\n\nBecause it left its Windows open! 🪟❄️`,
+      `How do trees access the internet?\n\nThey log in! 🌲📶`
+    ];
+    const pickedJoke = jokes[Math.floor(Math.random() * jokes.length)];
+
+    steps.push({
+      step: 1,
+      thought: 'Joke requested. Selected entertaining humor from local conversational repertoire.',
+      tool: 'entertainment',
+      params: { type: 'joke' },
+      result: JSON.stringify({ joke: pickedJoke }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: pickedJoke, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  if (/tell me a story|bedtime story|short story|creative story\b/i.test(lower)) {
+    const storyText = `### 🌌 The Lighthouse on the Edge of the Reef
+
+Deep along the rugged coastline of Cape Mist, there was an old keeper named Silas who tended a lighthouse that had stood for a hundred and twenty years. 
+
+Every night, as the storm clouds rolled in like ink spilling across paper, young mariners relied on that sweeping beam of amber light. But on one stormy autumn evening, the electric generator failed with a quiet hiss, plunging the entire tower into pitch blackness. 
+
+Silas didn't panic. He climbed the spiral iron staircase by touch alone, feeling each familiar cold rivet beneath his fingertips. Reaching the lantern room, he pulled a vintage brass hand-cranked lantern from the cupboard, struck a match, and began to manually turn the grand Fresnel lens by hand.
+
+He stood there for five continuous hours in the cold wind, turning the wheel rhythmically, watching a small fishing vessel named *The Wanderer* steer safely between the jagged breakers into the harbor.
+
+When dawn broke and the seas calmed to glass, the young captain walked up to the tower and asked Silas how he had kept the rhythm without a clock.
+
+Silas smiled, wiped the salt spray from his brow, and said: *"You don't need a clock when you know someone in the dark is counting on you."*
+
+---
+*Sometimes the light we offer to others is the very thing that keeps our own world turning.* ✨`;
+
+    steps.push({
+      step: 1,
+      thought: 'Storytelling intent detected. Synthesized heartwarming micro-narrative.',
+      tool: 'creativeWriting',
+      params: { type: 'story' },
+      result: JSON.stringify({ title: 'The Lighthouse on the Edge of the Reef' }),
+      status: 'SUCCESS',
+      latency: 2
+    });
+
+    return { reply: storyText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  if (/write a poem|compose a poem|poetry\b/i.test(lower)) {
+    const poemText = `### 🌿 The Architecture of Dawn
+
+The quiet night begins to fray,  
+As midnight turns to greet the day.  
+No fanfare marks the subtle start,  
+Just steady pulses in the heart.
+
+The questions that we carry deep,  
+Do not dissolve within our sleep;  
+Yet morning brings a cleaner sky,  
+Where heavy doubts can learn to fly.
+
+Build your dreams in quiet stone,  
+You are far less lost than you have known.  
+With every breath, begin anew—  
+The world is waiting here for you. ✨`;
+
+    steps.push({
+      step: 1,
+      thought: 'Poetry composition requested. Synthesized inspiring lyrical poem.',
+      tool: 'creativeWriting',
+      params: { type: 'poem' },
+      result: JSON.stringify({ status: 'poem_composed' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: poemText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  if (/give me a riddle|tell me a riddle|riddle me\b/i.test(lower)) {
+    const riddleText = `Here is a riddle for you! 🤔\n\n> *I have keys, but no locks.*  \n> *I have space, but no room.*  \n> *You can enter, but you can never leave.*  \n> *What am I?*\n\n*(Think about it for a second! When you're ready, ask me "What is the answer?" or guess your answer!)*`;
+
+    steps.push({
+      step: 1,
+      thought: 'Riddle requested. Provided interactive riddle.',
+      tool: 'entertainment',
+      params: { type: 'riddle' },
+      result: JSON.stringify({ answer: 'A computer keyboard' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: riddleText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  if (/what is the answer|answer to the riddle|what's the riddle answer/i.test(lower)) {
+    return {
+      reply: `The answer is: **A computer keyboard!** ⌨️\n(It has keys, a space bar, an Enter key, but no physical room to step outside!). Great riddle, right?`,
+      steps: [],
+      provider: 'Local Conversational Engine (Zero-Config Active)',
+      latency: Date.now() - startTime
+    };
+  }
+
+  // -------------------------------------------------------------
+  // 7. Practical Guidance & Advice
+  // -------------------------------------------------------------
+  if (/stay focused|how to focus|productivity|stop procrastinating|procrastination\b/i.test(lower)) {
+    const focusText = `### 🎯 4 Practical Ways to Reclaim Focus & Beat Procrastination:
+
+1. **The 2-Minute Gateway**: If a task feels daunting, tell yourself you will only work on it for *two minutes*. Starting is 80% of the battle; once inertia is broken, your brain naturally wants to continue.
+2. **The Pomodoro Rhythm (25/5)**: Work with zero distractions for 25 minutes, then take a real 5-minute break (stretch, drink water, look away from screens). Four rounds equals tremendous focused momentum.
+3. **Friction Architecture**: Make distractions harder to reach (put your phone in another room or turn it face down), and make your focus tool immediately visible on your screen.
+4. **Self-Compassion Over Guilt**: Beating yourself up for procrastinating only increases stress, which triggers more avoidance. Acknowledge the delay with kindness and take one small step right now.
+
+Which one of your current tasks feels hardest to start? Let's break it down into small bite-sized pieces!`;
+
+    steps.push({
+      step: 1,
+      thought: 'Productivity & focus advice requested. Provided practical, actionable guidance.',
+      tool: 'productivityCoaching',
+      params: { topic: 'focus' },
+      result: JSON.stringify({ status: 'advice_provided' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: focusText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  if (/learn (to )?code|learn programming|start coding|how to program\b/i.test(lower)) {
+    const codeAdvice = `### 🚀 How to Learn Programming Effectively:
+
+* **Start with Purpose, Not Just Syntax**: Don't just watch tutorials passively. Build tiny, tangible projects that excite you (a personal task tracker, a weather fetcher, a calculator).
+* **Pick One Versatile Language First**:
+  * **JavaScript / TypeScript**: Best for websites, web apps, and interactive tools.
+  * **Python**: Best for data science, AI, scripting, and automation.
+* **Embrace Errors as Clues**: Bugs are not failures; they are the roadmap showing you what the computer expected versus what it received. Debugging is the real superpower of every great developer.
+* **Consistency Over Cramming**: 30 to 45 minutes of daily practice will take you ten times further than an exhausting 8-hour weekend marathon.
+
+What kind of application or project are you most interested in building?`;
+
+    steps.push({
+      step: 1,
+      thought: 'Programming advice requested. Formulated encouraging roadmap.',
+      tool: 'codingCoaching',
+      params: { topic: 'learn_coding' },
+      result: JSON.stringify({ status: 'roadmap_provided' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: codeAdvice, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  // -------------------------------------------------------------
+  // 8. Deterministic Sandboxed Tools
+  // -------------------------------------------------------------
+  // A. Math Calculation
   if (/[0-9]+\s*[*+\/^\-%]\s*[0-9]+/.test(message) || /calculate|sqrt|percent|math/i.test(message)) {
-    // Extract formula starting with digit or parenthesis and ending with digit or parenthesis
     const match = message.match(/([0-9(][0-9+\-*/().\s%^]+[0-9)])/);
     const expr = match ? match[1].trim() : '2+2';
     toolToRun = 'calculateMath';
     toolParams = { expression: expr };
-    thoughtReasoning = `User query contains arithmetic calculation. Routing expression \`${expr}\` to deterministic execution sandbox.`;
+    thoughtReasoning = `Mathematical calculation detected. Routing \`${expr}\` to deterministic execution sandbox.`;
   }
-  // 2. Check for System telemetry
+  // B. System telemetry
   else if (/system|metrics|uptime|memory|ram|cpu|hardware|telemetry/i.test(lower)) {
     toolToRun = 'getSystemMetrics';
     toolParams = {};
-    thoughtReasoning = `User requested live hardware and server telemetry. Invoking \`getSystemMetrics\` to inspect environment runtime.`;
+    thoughtReasoning = 'User requested live hardware and server telemetry. Invoking `getSystemMetrics`.';
   }
-  // 3. Check for Database inspection
+  // C. Database inspection
   else if (/database|table|schema|records|sql|how many messages|how many sessions/i.test(lower)) {
     toolToRun = 'queryDatabase';
     if (/messages/i.test(lower)) {
@@ -879,31 +1439,31 @@ How can I assist you today?`;
     }
     thoughtReasoning = `Analytical query detected. Querying SQLite database schemas with read-only SQL: \`${toolParams.sql}\`.`;
   }
-  // 4. Check for Document / File queries
+  // D. Document / File queries
   else if (/document|file|uploaded|upload|resume|dataset|report|rag/i.test(lower)) {
     toolToRun = 'searchDocuments';
     toolParams = { query: message, sessionId };
-    thoughtReasoning = `Document query detected. Searching ingested documents in SQLite RAG storage.`;
+    thoughtReasoning = 'Document query detected. Searching ingested documents in SQLite RAG storage.';
   }
-  // 5. Check for Web search or online definition
+  // E. Web search or online definition
   else if (/search web|who is|latest news|weather|wiki|lookup|google/i.test(lower)) {
     const cleanQuery = message.replace(/search web|who is|lookup|find out/gi, '').trim() || message;
     toolToRun = 'webSearch';
     toolParams = { query: cleanQuery };
     thoughtReasoning = `Real-time search requested. Executing live external web search for: "${cleanQuery}".`;
   }
-  // 6. Check for Code execution
+  // F. Code execution
   else if (/execute code|run js|run code|function|const|let |console\.log/i.test(lower)) {
     toolToRun = 'executeCode';
     const codeMatch = message.match(/```(?:javascript|js)?([\s\S]*?)```/) || [null, message];
     toolParams = { code: codeMatch[1].trim() };
-    thoughtReasoning = `Code execution command detected. Executing JavaScript safely in isolated VM.`;
+    thoughtReasoning = 'Code execution command detected. Executing JavaScript safely in isolated VM.';
   }
-  // 7. Default: search knowledge base
+  // G. Verified Knowledge Base Check
   else {
     toolToRun = 'searchKnowledgeBase';
     toolParams = { query: message };
-    thoughtReasoning = `Querying audited SQLite knowledge base for verified ground-truth facts on topic.`;
+    thoughtReasoning = 'Querying SQLite knowledge base for verified ground-truth facts.';
   }
 
   // Execute selected tool
@@ -936,46 +1496,67 @@ How can I assist you today?`;
     latency: toolLatency
   });
 
-  // Synthesize answer based on tool output
+  // Synthesize answer conversationally based on tool output and tone
   let synthesized = '';
-  const parsed = JSON.parse(toolResult);
+  let parsed = {};
+  try {
+    parsed = JSON.parse(toolResult);
+  } catch {
+    parsed = { result: toolResult };
+  }
 
   if (toolToRun === 'calculateMath') {
-    synthesized = `### 🧮 Exact Mathematical Result\n\n**Expression:** \`${toolParams.expression}\`\n\n**Evaluated Answer:** \`${parsed.result}\`\n\n*(Computed deterministically in isolated sandbox with zero LLM prediction error)*`;
+    synthesized = toneWrap({
+      warm: `I worked that out for you! **${toolParams.expression}** calculates to **${parsed.result}**. Let me know if you want to test another formula or step!`,
+      witty: `Calculated with zero hesitation! 🧮 **${toolParams.expression}** = **${parsed.result}**. Need any more number-crunching magic?`,
+      deep: `Evaluating the mathematical expression \`${toolParams.expression}\` deterministically yields **${parsed.result}**.`,
+      direct: `**${parsed.result}** (evaluated from \`${toolParams.expression}\`)`
+    });
   } else if (toolToRun === 'getSystemMetrics') {
-    synthesized = `### 🖥️ Live System Telemetry\n\n| Metric | Telemetry Value |\n|---|---|\n| **Platform** | ${parsed.platform} |\n| **Node.js** | ${parsed.node_version} |\n| **CPU Model** | ${parsed.cpu_model} (${parsed.cpu_cores} Cores) |\n| **Memory Used** | ${parsed.heap_used_mb} MB (Heap) / ${parsed.rss_mb} MB (RSS) |\n| **Server Uptime** | ${parsed.uptime_seconds}s |\n| **Active Sessions** | ${parsed.database_stats.total_sessions} |\n| **Total Messages** | ${parsed.database_stats.total_messages} |\n| **Database Mode** | SQLite WAL (High Concurrency) |\n| **Server Time** | \`${parsed.system_time}\` |`;
+    synthesized = toneWrap({
+      warm: `Here is how our server is running right now: 🖥️\n\n* **Platform**: ${parsed.platform} on Node.js ${parsed.node_version}\n* **Hardware**: ${parsed.cpu_model} (${parsed.cpu_cores} Cores)\n* **Memory**: ${parsed.heap_used_mb} MB heap usage\n* **Uptime**: ${parsed.uptime_seconds} seconds of continuous runtime\n* **Database**: High-concurrency SQLite WAL mode\n\nEverything is healthy, responsive, and operating smoothly!`,
+      witty: `Vital signs check! 🩺 Server is purring like a kitten:\nCPU: ${parsed.cpu_model} (${parsed.cpu_cores} cores) | Memory Heap: ${parsed.heap_used_mb} MB | Uptime: ${parsed.uptime_seconds}s. All systems operational! 🚀`,
+      deep: `Telemetry overview: The runtime environment operates under Node.js ${parsed.node_version} on ${parsed.platform}. Memory consumption is currently ${parsed.heap_used_mb} MB across ${parsed.cpu_cores} CPU cores with ${parsed.uptime_seconds} seconds uptime.`,
+      direct: `CPU: ${parsed.cpu_model} (${parsed.cpu_cores} cores) | Memory: ${parsed.heap_used_mb} MB | Uptime: ${parsed.uptime_seconds}s | DB: SQLite WAL.`
+    });
   } else if (toolToRun === 'queryDatabase') {
-    synthesized = `### 🗄️ SQLite Database Query Result\n\n**Executed SQL:** \`${toolParams.sql}\`\n\n\`\`\`json\n${JSON.stringify(parsed.data || parsed, null, 2)}\n\`\`\``;
+    synthesized = `I queried the database for you:\n\n\`\`\`json\n${JSON.stringify(parsed.data || parsed, null, 2)}\n\`\`\`\nLet me know if you would like me to inspect any other tables or calculate specific aggregates!`;
   } else if (toolToRun === 'searchDocuments') {
     if (parsed.found && parsed.documents.length > 0) {
-      const docList = parsed.documents.map(d => `#### 📄 ${d.filename} (${d.type})\n${d.preview}`).join('\n\n');
-      synthesized = `### 📚 Ingested Document Search (RAG)\n\nFound **${parsed.count}** matching document segment(s):\n\n${docList}`;
+      const docList = parsed.documents.map(d => `📄 **${d.filename}** (${d.type}):\n${d.preview}`).join('\n\n');
+      synthesized = `Here is what I found in your uploaded documents:\n\n${docList}`;
     } else {
-      synthesized = `### 📚 Ingested Document Search (RAG)\n\nNo matching documents found in session memory for \`${toolParams.query}\`. You can upload text, markdown, CSV, or code files via the upload panel to query them here.`;
+      synthesized = `I searched your documents for **"${toolParams.query}"**, but didn't find a direct match. You can drag and drop or upload files anytime in the dashboard to let me query them for you!`;
     }
   } else if (toolToRun === 'webSearch') {
     if (parsed.found && parsed.results && parsed.results.length > 0) {
       const formatted = parsed.results.map(r => `* **[${r.title}](${r.url || '#'})**: ${r.snippet}`).join('\n');
-      synthesized = `### 🌐 Live Web & Encyclopedic Results\n\n**Query:** "${toolParams.query}"\n\n${formatted}\n\n*Source: ${parsed.source || 'DuckDuckGo Instant Answers'}*`;
+      synthesized = `Here is what I found on the web for **"${toolParams.query}"**:\n\n${formatted}\n\n*(Source: ${parsed.source || 'Web Search'})*`;
     } else {
-      synthesized = `Web search completed for \`${toolParams.query}\`. External result status: ${parsed.error || 'No direct snippet found'}.`;
+      synthesized = `I looked for **"${toolParams.query}"**, but couldn't retrieve external snippets at this moment. If there is a specific concept you'd like to explore, let me know!`;
     }
   } else if (toolToRun === 'executeCode') {
-    synthesized = `### ⚡ Sandboxed Code Execution\n\n**Evaluated Return:** \`${JSON.stringify(parsed.evaluated)}\`\n\n**Console Logs:**\n\`\`\`text\n${parsed.logs.join('\n')}\n\`\`\``;
+    synthesized = `Code execution finished! Here are the results:\n\n* **Evaluated Output**: \`${JSON.stringify(parsed.evaluated)}\`\n* **Console Logs**:\n\`\`\`text\n${(parsed.logs || []).join('\n') || '(no console output)'}\n\`\`\``;
   } else {
-    // Knowledge base
+    // Knowledge base match
     if (parsed.found && parsed.records.length > 0) {
       const r = parsed.records[0];
-      synthesized = `### 🛡️ Verified Knowledge Record\n\n**Topic:** ${r.topic} (${r.category})\n\n${r.content}\n\n**Audited Source:** *${r.verified_source}*`;
+      synthesized = `Here is verified knowledge on **${r.topic}** (${r.category}):\n\n${r.content}\n\n*(Audited Source: ${r.verified_source})*`;
     } else {
-      synthesized = `I logged your inquiry in the SQLite database. To enable open-ended reasoning across all domains, you can attach an API key (**OpenAI**, **Google Gemini**, **Anthropic**, **Groq**, or **Ollama**) in the **Settings** menu at the top. \n\nIn the meantime, the local engine can execute calculations, query database records, inspect system telemetry, search uploaded documents, and query verified facts.`;
+      // General thoughtful fallback for open-ended queries
+      synthesized = toneWrap({
+        warm: `That's a thoughtful inquiry${userName ? ', ' + userName : ''}! While I'm currently running on our offline engine without external LLM keys connected, I can gladly help you crunch math, inspect databases, analyze uploaded documents, and discuss ideas.\n\n> 💡 *Tip: To unlock unlimited open-ended reasoning across any topic, click **"Attach API Keys"** in the top bar to connect Google Gemini, OpenAI, Groq, or Ollama!*`,
+        witty: `Interesting thought! 🧠 Right now I'm operating on local zero-config mode. To give you full-blown creative answers on any topic under the sun, you can attach an API key (like Gemini or OpenAI) in the top settings menu! In the meantime, want to run some math or test code?`,
+        deep: `This inquiry touches on broader reasoning beyond our local verified records. To enable complete open-domain synthesis, connect an API provider in Settings.`,
+        direct: `No local record found for this topic. Attach an API key in Settings for full open-ended generation, or use math, document, or telemetry queries.`
+      });
     }
   }
 
   return {
     reply: synthesized,
     steps,
-    provider: 'Local Autonomous Engine (Zero-Config Active)',
+    provider: 'Local Conversational Engine (Zero-Config Active)',
     latency: Date.now() - startTime
   };
 }

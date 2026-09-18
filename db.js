@@ -88,6 +88,24 @@ db.exec(`
     is_secret INTEGER DEFAULT 0,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS user_profiles (
+    user_id TEXT PRIMARY KEY,
+    display_name TEXT DEFAULT 'Friend',
+    tone_style TEXT DEFAULT 'human_warm',
+    custom_instructions TEXT DEFAULT '',
+    voice_enabled INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS conversation_summaries (
+    session_id TEXT PRIMARY KEY,
+    summary TEXT,
+    key_facts TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
+  );
 `);
 
 // Safe column migrations in case previous database version exists
@@ -202,6 +220,61 @@ db.getAllSettingsSafe = () => {
     }
   }
   return result;
+};
+
+// -------------------------------------------------------------
+// User Profile & Long-Term Memory Helpers
+// -------------------------------------------------------------
+db.getUserProfile = (userId = 'default_user') => {
+  let profile = db.prepare('SELECT * FROM user_profiles WHERE user_id = ?').get(userId);
+  if (!profile) {
+    db.prepare(`
+      INSERT INTO user_profiles (user_id, display_name, tone_style, custom_instructions, voice_enabled)
+      VALUES (?, 'Friend', 'human_warm', '', 0)
+    `).run(userId);
+    profile = db.prepare('SELECT * FROM user_profiles WHERE user_id = ?').get(userId);
+  }
+  return profile;
+};
+
+db.saveUserProfile = (userId = 'default_user', data = {}) => {
+  const current = db.getUserProfile(userId);
+  const displayName = data.display_name !== undefined ? data.display_name : current.display_name;
+  const toneStyle = data.tone_style !== undefined ? data.tone_style : current.tone_style;
+  const customInstructions = data.custom_instructions !== undefined ? data.custom_instructions : current.custom_instructions;
+  const voiceEnabled = data.voice_enabled !== undefined ? (data.voice_enabled ? 1 : 0) : current.voice_enabled;
+
+  db.prepare(`
+    UPDATE user_profiles 
+    SET display_name = ?, tone_style = ?, custom_instructions = ?, voice_enabled = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE user_id = ?
+  `).run(displayName, toneStyle, customInstructions, voiceEnabled, userId);
+
+  return db.getUserProfile(userId);
+};
+
+db.getConversationSummary = (sessionId) => {
+  return db.prepare('SELECT * FROM conversation_summaries WHERE session_id = ?').get(sessionId);
+};
+
+db.saveConversationSummary = (sessionId, summary, keyFacts = '') => {
+  db.prepare(`
+    INSERT INTO conversation_summaries (session_id, summary, key_facts, updated_at)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(session_id) DO UPDATE SET summary = excluded.summary, key_facts = excluded.key_facts, updated_at = CURRENT_TIMESTAMP
+  `).run(sessionId, summary, keyFacts);
+};
+
+db.getRecentChatContext = (sessionId, limit = 15) => {
+  const summary = db.getConversationSummary(sessionId);
+  const messages = db.prepare(`
+    SELECT id, role, content, thoughts, tool_meta, created_at
+    FROM messages
+    WHERE session_id = ?
+    ORDER BY id DESC
+    LIMIT ?
+  `).all(sessionId, limit).reverse();
+  return { summary, messages };
 };
 
 module.exports = db;

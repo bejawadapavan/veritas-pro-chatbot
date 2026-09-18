@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Veritas AI">
   <meta name="theme-color" content="#090d16">
-  <title>Veritas AI - Mobile Assistant</title>
+  <title>Veritas AI - Conversational Human-Like Assistant</title>
   
   <!-- Tailwind CSS & Lucide Icons -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -23,10 +23,14 @@
           colors: {
             brand: {
               50: '#eef2ff',
+              100: '#e0e7ff',
+              200: '#c7d2fe',
+              300: '#a5b4fc',
               400: '#818cf8',
               500: '#6366f1',
               600: '#4f46e5',
               700: '#4338ca',
+              800: '#3730a3',
               900: '#312e81'
             }
           }
@@ -36,134 +40,266 @@
   </script>
 
   <style>
-    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.4); }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.45); }
 
-    /* Prevent iOS auto-zoom on input focus by guaranteeing 16px text on mobile */
+    /* Prevent iOS auto-zoom on input focus */
     input, textarea {
       font-size: 16px !important;
     }
 
-    .markdown-body { font-size: 0.875rem; line-height: 1.6; }
-    .markdown-body h1, .markdown-body h2, .markdown-body h3 { color: #f8fafc; font-weight: 700; margin-top: 0.5rem; margin-bottom: 0.25rem; }
-    .markdown-body p { margin-bottom: 0.5rem; }
-    .markdown-body ul, .markdown-body ol { margin-left: 1.25rem; margin-bottom: 0.5rem; list-style-type: disc; }
-    .markdown-body code:not(pre code) { background: rgba(30, 41, 59, 0.8); color: #a5b4fc; padding: 0.15rem 0.3rem; border-radius: 4px; font-family: monospace; font-size: 0.85em; }
-    .markdown-body pre { background: #0b1120 !important; border: 1px solid rgba(51, 65, 85, 0.8); border-radius: 10px; padding: 0.75rem; margin: 0.5rem 0; overflow-x: auto; }
-    .markdown-body table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.8rem; }
-    .markdown-body th, .markdown-body td { border: 1px solid rgba(51, 65, 85, 0.7); padding: 0.35rem 0.5rem; }
-    .markdown-body th { background: rgba(15, 23, 42, 0.8); color: #c7d2fe; }
+    .markdown-body { font-size: 0.9rem; line-height: 1.65; }
+    .markdown-body h1, .markdown-body h2, .markdown-body h3 { color: #f8fafc; font-weight: 700; margin-top: 0.6rem; margin-bottom: 0.3rem; }
+    .markdown-body p { margin-bottom: 0.55rem; }
+    .markdown-body ul, .markdown-body ol { margin-left: 1.35rem; margin-bottom: 0.55rem; list-style-type: disc; }
+    .markdown-body code:not(pre code) { background: rgba(30, 41, 59, 0.85); color: #c7d2fe; padding: 0.15rem 0.35rem; border-radius: 5px; font-family: monospace; font-size: 0.86em; }
+    .markdown-body pre { background: #0b1120 !important; border: 1px solid rgba(51, 65, 85, 0.8); border-radius: 12px; padding: 0.85rem; margin: 0.6rem 0; overflow-x: auto; }
+    .markdown-body table { width: 100%; border-collapse: collapse; margin: 0.6rem 0; font-size: 0.82rem; }
+    .markdown-body th, .markdown-body td { border: 1px solid rgba(51, 65, 85, 0.7); padding: 0.4rem 0.6rem; }
+    .markdown-body th { background: rgba(15, 23, 42, 0.85); color: #c7d2fe; }
+
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.15); opacity: 0.4; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .mic-recording {
+      animation: pulse-ring 1.5s infinite ease-in-out;
+    }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen antialiased flex flex-col font-sans selection:bg-brand-500 selection:text-white">
 
-  <!-- Clean Mobile Header -->
-  <header class="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-xl sticky top-0 z-30 h-14 flex items-center justify-between px-3 sm:px-6">
-    <div class="flex items-center gap-2">
-      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-sky-400 p-[1px] shadow-md shadow-brand-500/20">
+  <!-- Mobile & Desktop Sticky Header -->
+  <header class="border-b border-slate-800/80 bg-slate-900/85 backdrop-blur-xl sticky top-0 z-30 h-14 flex items-center justify-between px-3 sm:px-6 shadow-md">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-sky-400 p-[1px] shadow-lg shadow-brand-500/25">
         <div class="w-full h-full bg-slate-950 rounded-[11px] flex items-center justify-center">
           <i data-lucide="sparkles" class="w-4 h-4 text-indigo-400"></i>
         </div>
       </div>
       <div>
         <div class="flex items-center gap-1.5">
-          <span class="font-bold text-sm text-white">Veritas AI</span>
-          <span class="px-1.5 py-0.2 rounded-full text-[9px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+          <span class="font-bold text-sm text-white tracking-tight">Veritas AI</span>
+          <span class="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
             Online
           </span>
+        </div>
+        <div class="text-[10px] text-slate-400 flex items-center gap-1">
+          <span id="headerUserName">Friend</span> &bull; <span id="headerToneLabel" class="text-brand-300">Warm & Empathetic</span>
         </div>
       </div>
     </div>
 
     <div class="flex items-center gap-1.5">
+      <!-- User Profile / Personalization Button -->
+      <button id="btnOpenProfile" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 transition shadow-sm" title="Personalization & Memory">
+        <i data-lucide="user" class="w-4 h-4 text-brand-300"></i>
+      </button>
+
       <!-- QR Code Share Button for Phones -->
-      <button id="btnShareQr" class="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition" title="Show QR Code for other phones">
+      <button id="btnShareQr" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 transition shadow-sm" title="Share with Any Phone">
         <i data-lucide="qr-code" class="w-4 h-4 text-emerald-400"></i>
       </button>
 
       <!-- New Chat Button -->
-      <button id="btnNewChat" class="px-2.5 py-1 text-xs rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 flex items-center gap-1 transition">
+      <button id="btnNewChat" class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700/80 flex items-center gap-1.5 transition shadow-sm">
         <i data-lucide="plus" class="w-3.5 h-3.5"></i>
         <span>New</span>
       </button>
     </div>
   </header>
 
+  <!-- Conversational Tone Switcher Bar -->
+  <div class="bg-slate-900/60 border-b border-slate-800/60 px-3 py-2">
+    <div class="max-w-3xl mx-auto flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+      <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 flex items-center gap-1 mr-1">
+        <i data-lucide="sliders" class="w-3 h-3 text-brand-400"></i> Tone:
+      </span>
+      <button onclick="setTone('human_warm')" data-tone="human_warm" class="tone-pill px-3 py-1 rounded-full text-xs font-medium transition flex items-center gap-1.5 shrink-0 bg-brand-600/30 text-brand-200 border border-brand-500/50 shadow-sm">
+        <span>🌟 Warm & Empathetic</span>
+      </button>
+      <button onclick="setTone('friendly_witty')" data-tone="friendly_witty" class="tone-pill px-3 py-1 rounded-full text-xs font-medium transition flex items-center gap-1.5 shrink-0 bg-slate-900 text-slate-300 border border-slate-800 hover:border-brand-500/30">
+        <span>😄 Playful & Witty</span>
+      </button>
+      <button onclick="setTone('deep_thinker')" data-tone="deep_thinker" class="tone-pill px-3 py-1 rounded-full text-xs font-medium transition flex items-center gap-1.5 shrink-0 bg-slate-900 text-slate-300 border border-slate-800 hover:border-brand-500/30">
+        <span>🧠 Deep Thinker</span>
+      </button>
+      <button onclick="setTone('concise_direct')" data-tone="concise_direct" class="tone-pill px-3 py-1 rounded-full text-xs font-medium transition flex items-center gap-1.5 shrink-0 bg-slate-900 text-slate-300 border border-slate-800 hover:border-brand-500/30">
+        <span>⚡ Direct & Crisp</span>
+      </button>
+    </div>
+  </div>
+
   <!-- Chat Container Area -->
-  <main class="flex-1 flex flex-col max-w-3xl w-full mx-auto p-4 sm:p-6 overflow-hidden">
+  <main class="flex-1 flex flex-col max-w-3xl w-full mx-auto p-3 sm:p-6 overflow-hidden">
     
     <!-- Messages Scroll Thread -->
     <div id="messagesThread" class="flex-1 overflow-y-auto space-y-4 pr-1 pb-4">
       
       <!-- Welcome Hero Message -->
-      <div class="p-5 rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950 border border-slate-800 text-slate-300 space-y-3 shadow-lg">
-        <div class="flex items-center gap-2.5 text-brand-400 font-bold text-sm">
-          <i data-lucide="bot" class="w-5 h-5"></i>
-          <span>Welcome to Veritas AI!</span>
+      <div id="welcomeCard" class="p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-slate-900/90 via-slate-900/60 to-slate-950 border border-slate-800 text-slate-300 space-y-3.5 shadow-xl">
+        <div class="flex items-center gap-2.5 text-brand-300 font-bold text-base">
+          <div class="w-7 h-7 rounded-lg bg-brand-500/20 flex items-center justify-center text-brand-400">
+            <i data-lucide="bot" class="w-4 h-4"></i>
+          </div>
+          <span>Hello! How are you feeling today?</span>
         </div>
-        <p class="text-xs text-slate-300 leading-relaxed">
-          I am your autonomous AI assistant. I can answer questions, perform exact mathematical calculations, search verified facts, query uploaded knowledge, and analyze data for you.
+        <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+          I am <strong>Veritas</strong>, your conversational companion and copilot. I can chat through life questions, listen to how your day went, solve exact math formulas, analyze uploaded documents, and explore creative ideas with you.
         </p>
-        <div class="pt-2 border-t border-slate-800/80">
-          <span class="text-[10px] uppercase font-bold text-slate-500 tracking-wider block mb-2">Try asking:</span>
+        <div class="pt-3 border-t border-slate-800/80">
+          <span class="text-[11px] uppercase font-bold text-slate-400 tracking-wider block mb-2">Try saying or asking:</span>
           <div class="flex flex-wrap gap-2 text-xs">
-            <button onclick="fillPrompt('hi')" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800 text-slate-300 transition">👋 Hi</button>
-            <button onclick="fillPrompt('What is ((4890 * 1.18) + 720) / 4?')" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800 text-slate-300 transition">🧮 Math Calculation</button>
-            <button onclick="fillPrompt('What is Agentic AI?')" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800 text-slate-300 transition">🛡️ What is Agentic AI?</button>
-            <button onclick="fillPrompt('Fetch live system metrics')" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800 text-slate-300 transition">🖥️ System Status</button>
+            <button onclick="fillPrompt('hi')" class="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800 text-slate-200 transition shadow-sm">👋 Say Hello</button>
+            <button onclick="fillPrompt('I had a really tiring day today')" class="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800 text-slate-200 transition shadow-sm">🌿 Tiring Day</button>
+            <button onclick="fillPrompt('Tell me a funny joke')" class="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800 text-slate-200 transition shadow-sm">😄 Tell a Joke</button>
+            <button onclick="fillPrompt('How can I stay focused and beat procrastination?')" class="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800 text-slate-200 transition shadow-sm">🎯 Stay Focused</button>
+            <button onclick="fillPrompt('What is ((4890 * 1.18) + 720) / 4?')" class="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800 text-slate-200 transition shadow-sm">🧮 Math Calc</button>
+            <button onclick="fillPrompt('What is the meaning of life?')" class="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800 text-slate-200 transition shadow-sm">🌱 Meaning of Life</button>
           </div>
         </div>
       </div>
 
     </div>
 
-    <!-- Status Indicator -->
-    <div id="typingIndicator" class="hidden items-center gap-2 py-1.5 px-3 text-xs text-brand-400 font-medium">
-      <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
-      <span id="typingText">Veritas is thinking...</span>
+    <!-- Live Status / Typing Indicator -->
+    <div id="typingIndicator" class="hidden items-center gap-2 py-2 px-3 text-xs text-brand-300 font-medium">
+      <div class="flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-brand-400 animate-bounce"></span>
+        <span class="w-2 h-2 rounded-full bg-brand-400 animate-bounce [animation-delay:0.2s]"></span>
+        <span class="w-2 h-2 rounded-full bg-brand-400 animate-bounce [animation-delay:0.4s]"></span>
+      </div>
+      <span id="typingText" class="ml-1">Veritas is thinking...</span>
+    </div>
+
+    <!-- Voice Listening Toast -->
+    <div id="voiceBanner" class="hidden items-center justify-between px-3.5 py-2 mb-2 bg-rose-500/15 border border-rose-500/40 rounded-xl text-rose-300 text-xs">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+        <span class="font-semibold">Listening... Speak now</span>
+      </div>
+      <button onclick="stopVoiceRecognition()" class="text-[11px] underline text-rose-200 hover:text-white">Stop</button>
     </div>
 
     <!-- Input Form -->
     <div class="pt-2">
       <form id="chatForm" class="flex items-center gap-2">
+        
+        <!-- Voice Dictation Button (Speech-to-Text) -->
+        <button 
+          type="button" 
+          id="btnVoiceInput" 
+          class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800 text-slate-400 hover:text-brand-300 transition shadow-sm flex items-center justify-center shrink-0" 
+          title="Voice Speech-to-Text"
+        >
+          <i data-lucide="mic" class="w-4 h-4" id="micIcon"></i>
+        </button>
+
         <div class="relative flex-1">
           <input 
             type="text" 
             id="chatInput" 
-            placeholder="Type your message here..." 
+            placeholder="Talk with Veritas, ask anything, or click 🎤 to speak..." 
             class="w-full bg-slate-900/90 border border-slate-800 text-sm text-white rounded-xl pl-4 pr-10 py-3.5 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition placeholder:text-slate-500 shadow-inner"
             autocomplete="off"
             required
           >
         </div>
+        
         <button 
           type="submit" 
           id="sendBtn" 
-          class="px-5 py-3.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white rounded-xl text-sm font-bold transition flex items-center gap-2 shadow-lg shadow-brand-500/20 disabled:opacity-50"
+          class="px-5 py-3.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white rounded-xl text-sm font-bold transition flex items-center gap-2 shadow-lg shadow-brand-500/20 disabled:opacity-50 shrink-0"
         >
           <span>Send</span>
           <i data-lucide="send" class="w-4 h-4"></i>
         </button>
       </form>
-      <div class="text-[10px] text-center text-slate-500 mt-2">
-        Powered by Veritas Enterprise AI Agentic Engine
+      <div class="text-[10px] text-center text-slate-500 mt-2 flex items-center justify-center gap-1.5">
+        <i data-lucide="heart" class="w-3 h-3 text-rose-400/80 inline"></i>
+        <span>Natural Conversational AI &bull; SQLite WAL Persistent Memory</span>
       </div>
     </div>
 
   </main>
 
+  <!-- User Profile / Personalization Modal -->
+  <div id="profileModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <h3 class="font-bold text-sm text-white flex items-center gap-2">
+          <i data-lucide="user-check" class="w-4 h-4 text-brand-400"></i> Personalize Veritas
+        </h3>
+        <button id="btnCloseProfileModal" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">Your Name / Nickname</label>
+          <input type="text" id="inputDisplayName" placeholder="e.g. Alex" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">Conversation Tone Preference</label>
+          <select id="selectTone" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500">
+            <option value="human_warm">🌟 Warm & Empathetic (Human-like)</option>
+            <option value="friendly_witty">😄 Playful & Witty (Humor & Emojis)</option>
+            <option value="deep_thinker">🧠 Deep Thinker (Philosophical)</option>
+            <option value="concise_direct">⚡ Direct & Crisp (No Fluff)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">Custom Instructions (Optional)</label>
+          <textarea id="inputCustomInstructions" rows="3" placeholder="e.g. 'I am studying for my exams, keep explanations encouraging and practical'" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-brand-500 placeholder:text-slate-600"></textarea>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+        <button id="btnCancelProfile" class="px-3 py-1.5 rounded-xl text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 transition">Cancel</button>
+        <button id="btnSaveProfile" class="px-4 py-1.5 rounded-xl text-xs font-bold bg-brand-600 hover:bg-brand-500 text-white transition shadow-md shadow-brand-500/20">Save Profile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Share Modal -->
+  <div id="qrModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xs w-full p-5 shadow-2xl text-center space-y-4">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <h3 class="font-bold text-xs text-white flex items-center gap-1.5">
+          <i data-lucide="smartphone" class="w-4 h-4 text-emerald-400"></i> Open on Any Phone
+        </h3>
+        <button id="btnCloseQrModal" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <p class="text-[11px] text-slate-400">Scan this QR code with your phone camera to chat instantly:</p>
+      <div class="p-2.5 bg-white rounded-xl inline-block shadow-inner">
+        <img id="qrImage" src="" alt="QR Code" class="w-48 h-48 block mx-auto">
+      </div>
+      <div class="text-[10px] text-slate-400 truncate bg-slate-950 p-2 rounded-lg font-mono border border-slate-800" id="qrUrlText"></div>
+    </div>
+  </div>
+
   <script>
     lucide.createIcons();
 
-    // Generate or retrieve persistent user session ID
+    // Guest Session Management
     let guestSessionId = localStorage.getItem('vpro_user_session');
     if (!guestSessionId) {
       guestSessionId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
       localStorage.setItem('vpro_user_session', guestSessionId);
     }
+
+    // Active Tone State
+    let activeTone = localStorage.getItem('vpro_user_tone') || 'human_warm';
+    let userProfileState = {
+      display_name: 'Friend',
+      tone_style: activeTone,
+      custom_instructions: ''
+    };
 
     const messagesThread = document.getElementById('messagesThread');
     const chatForm = document.getElementById('chatForm');
@@ -171,8 +307,61 @@
     const sendBtn = document.getElementById('sendBtn');
     const typingIndicator = document.getElementById('typingIndicator');
     const btnNewChat = document.getElementById('btnNewChat');
+    const headerUserName = document.getElementById('headerUserName');
+    const headerToneLabel = document.getElementById('headerToneLabel');
 
-    // Load History for this specific user session
+    const toneLabels = {
+      human_warm: 'Warm & Empathetic',
+      friendly_witty: 'Playful & Witty',
+      deep_thinker: 'Deep Thinker',
+      concise_direct: 'Direct & Crisp'
+    };
+
+    function updateTonePillsUI() {
+      document.querySelectorAll('.tone-pill').forEach(btn => {
+        const btnTone = btn.getAttribute('data-tone');
+        if (btnTone === activeTone) {
+          btn.className = 'tone-pill px-3 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1.5 shrink-0 bg-brand-600/30 text-brand-200 border border-brand-500/50 shadow-sm';
+        } else {
+          btn.className = 'tone-pill px-3 py-1 rounded-full text-xs font-medium transition flex items-center gap-1.5 shrink-0 bg-slate-900 text-slate-400 border border-slate-800 hover:border-brand-500/30';
+        }
+      });
+      if (headerToneLabel) headerToneLabel.innerText = toneLabels[activeTone] || 'Warm & Empathetic';
+    }
+
+    async function setTone(tone) {
+      activeTone = tone;
+      localStorage.setItem('vpro_user_tone', tone);
+      updateTonePillsUI();
+      try {
+        await fetch('/api/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: 'default_user', tone_style: tone })
+        });
+      } catch {}
+    }
+
+    // Load Profile
+    async function loadUserProfile() {
+      try {
+        const res = await fetch('/api/profile?userId=default_user');
+        if (res.ok) {
+          const profile = await res.json();
+          if (profile) {
+            userProfileState = profile;
+            if (profile.tone_style) activeTone = profile.tone_style;
+            if (headerUserName) headerUserName.innerText = profile.display_name || 'Friend';
+            updateTonePillsUI();
+          }
+        }
+      } catch (err) {
+        console.warn('Profile load notice:', err);
+      }
+    }
+    loadUserProfile();
+
+    // Load History
     async function loadUserHistory() {
       try {
         const res = await fetch(`/api/sessions/${guestSessionId}/messages`);
@@ -193,26 +382,161 @@
       chatInput.focus();
     }
 
+    // -------------------------------------------------------------
+    // Audio Read-Aloud (Text-to-Speech)
+    // -------------------------------------------------------------
+    let currentSpeechUtterance = null;
+    let activeSpeakButton = null;
+
+    function toggleReadAloud(text, btnElement) {
+      if (!('speechSynthesis' in window)) {
+        alert('Text-to-speech is not supported by your browser.');
+        return;
+      }
+
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+        if (activeSpeakButton) {
+          activeSpeakButton.innerHTML = '<i data-lucide="volume-2" class="w-3.5 h-3.5"></i>';
+          activeSpeakButton.classList.remove('text-brand-400');
+          lucide.createIcons();
+        }
+        if (activeSpeakButton === btnElement) {
+          activeSpeakButton = null;
+          return;
+        }
+      }
+
+      // Strip markdown syntax for natural speech
+      const cleanText = text
+        .replace(/```[\s\S]*?```/g, 'Code block omitted.')
+        .replace(/[#*_`~>-]/g, ' ')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/\n+/g, '. ')
+        .trim();
+
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+
+      activeSpeakButton = btnElement;
+      btnElement.innerHTML = '<i data-lucide="volume-x" class="w-3.5 h-3.5 text-rose-400 animate-pulse"></i>';
+      btnElement.classList.add('text-brand-400');
+      lucide.createIcons();
+
+      utterance.onend = () => {
+        btnElement.innerHTML = '<i data-lucide="volume-2" class="w-3.5 h-3.5"></i>';
+        btnElement.classList.remove('text-brand-400');
+        activeSpeakButton = null;
+        lucide.createIcons();
+      };
+
+      utterance.onerror = () => {
+        btnElement.innerHTML = '<i data-lucide="volume-2" class="w-3.5 h-3.5"></i>';
+        activeSpeakButton = null;
+        lucide.createIcons();
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function copyMessageContent(content, btn) {
+      navigator.clipboard.writeText(content).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400"></i>';
+        lucide.createIcons();
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          lucide.createIcons();
+        }, 1500);
+      });
+    }
+
+    async function regenerateLastResponse() {
+      typingIndicator.classList.remove('hidden');
+      typingIndicator.classList.add('flex');
+
+      try {
+        const res = await fetch('/api/chat/regenerate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: guestSessionId,
+            tone: activeTone,
+            persona: 'general'
+          })
+        });
+
+        const data = await res.json();
+        // Remove the last assistant bubble from UI
+        const assistantBubbles = messagesThread.querySelectorAll('.assistant-bubble');
+        if (assistantBubbles.length > 0) {
+          assistantBubbles[assistantBubbles.length - 1].closest('.message-wrapper').remove();
+        }
+        appendMessage('assistant', data.response || data.error);
+      } catch (err) {
+        alert('Regeneration notice: ' + err.message);
+      } finally {
+        typingIndicator.classList.add('hidden');
+        typingIndicator.classList.remove('flex');
+      }
+    }
+
     function appendMessage(role, content) {
       const isUser = role === 'user';
       const wrapper = document.createElement('div');
-      wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'} w-full`;
+      wrapper.className = `message-wrapper flex ${isUser ? 'justify-end' : 'justify-start'} w-full`;
 
       const bubble = document.createElement('div');
-      bubble.className = `max-w-[85%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed space-y-2 shadow-lg ${
+      bubble.className = `${isUser ? 'user-bubble' : 'assistant-bubble'} max-w-[88%] sm:max-w-[82%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed space-y-2.5 shadow-lg ${
         isUser 
-          ? 'bg-gradient-to-r from-brand-600 to-indigo-600 text-white rounded-br-none' 
-          : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none'
+          ? 'bg-gradient-to-r from-brand-600 via-indigo-600 to-brand-700 text-white rounded-br-none shadow-brand-500/20' 
+          : 'bg-slate-900/95 border border-slate-800 text-slate-200 rounded-bl-none'
       }`;
 
       const parsedHtml = marked.parse(content || '');
+
+      let actionsHtml = '';
+      if (!isUser) {
+        actionsHtml = `
+          <div class="pt-2 mt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+            <span class="text-[10px] text-slate-500 flex items-center gap-1">
+              <i data-lucide="sparkles" class="w-3 h-3 text-brand-400"></i> Veritas
+            </span>
+            <div class="flex items-center gap-2">
+              <button class="btn-read-aloud p-1 hover:text-white transition" title="Read message aloud">
+                <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <button class="btn-copy p-1 hover:text-white transition" title="Copy text">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              </button>
+              <button class="btn-regen p-1 hover:text-white transition" title="Regenerate alternative response">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
       bubble.innerHTML = `
         <div class="font-semibold text-[11px] ${isUser ? 'text-brand-100' : 'text-brand-400'} flex items-center gap-1.5 pb-1 border-b ${isUser ? 'border-brand-400/30' : 'border-slate-800'}">
-          <i data-lucide="${isUser ? 'user' : 'sparkles'}" class="w-3.5 h-3.5"></i>
-          <span>${isUser ? 'You' : 'Veritas AI'}</span>
+          <i data-lucide="${isUser ? 'user' : 'bot'}" class="w-3.5 h-3.5"></i>
+          <span>${isUser ? (userProfileState.display_name || 'You') : 'Veritas AI'}</span>
         </div>
         <div class="markdown-body">${parsedHtml}</div>
+        ${actionsHtml}
       `;
+
+      if (!isUser) {
+        const btnRead = bubble.querySelector('.btn-read-aloud');
+        if (btnRead) btnRead.addEventListener('click', () => toggleReadAloud(content, btnRead));
+
+        const btnCopy = bubble.querySelector('.btn-copy');
+        if (btnCopy) btnCopy.addEventListener('click', () => copyMessageContent(content, btnCopy));
+
+        const btnRegen = bubble.querySelector('.btn-regen');
+        if (btnRegen) btnRegen.addEventListener('click', regenerateLastResponse);
+      }
 
       wrapper.appendChild(bubble);
       messagesThread.appendChild(wrapper);
@@ -240,7 +564,9 @@
           body: JSON.stringify({
             sessionId: guestSessionId,
             message: message,
-            persona: 'general'
+            persona: 'general',
+            tone: activeTone,
+            userId: 'default_user'
           })
         });
 
@@ -267,7 +593,137 @@
       `;
     });
 
+    // -------------------------------------------------------------
+    // Voice Dictation (Speech-to-Text)
+    // -------------------------------------------------------------
+    const btnVoiceInput = document.getElementById('btnVoiceInput');
+    const micIcon = document.getElementById('micIcon');
+    const voiceBanner = document.getElementById('voiceBanner');
+    let speechRecognition = null;
+    let isRecordingVoice = false;
+
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRec) {
+      speechRecognition = new SpeechRec();
+      speechRecognition.continuous = false;
+      speechRecognition.interimResults = true;
+      speechRecognition.lang = 'en-US';
+
+      speechRecognition.onstart = () => {
+        isRecordingVoice = true;
+        voiceBanner.classList.remove('hidden');
+        voiceBanner.classList.add('flex');
+        btnVoiceInput.classList.add('bg-rose-600/30', 'border-rose-500', 'text-rose-400');
+        micIcon.classList.add('mic-recording');
+      };
+
+      speechRecognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          transcript += event.results[i][0].transcript;
+        }
+        chatInput.value = transcript;
+      };
+
+      speechRecognition.onerror = (event) => {
+        console.warn('Speech Recognition Error:', event.error);
+        stopVoiceRecognition();
+      };
+
+      speechRecognition.onend = () => {
+        stopVoiceRecognition();
+      };
+    }
+
+    function startVoiceRecognition() {
+      if (!speechRecognition) {
+        alert('Speech recognition is not supported on this browser. Try Chrome or Edge.');
+        return;
+      }
+      try {
+        speechRecognition.start();
+      } catch (err) {
+        console.warn(err);
+      }
+    }
+
+    function stopVoiceRecognition() {
+      isRecordingVoice = false;
+      voiceBanner.classList.add('hidden');
+      voiceBanner.classList.remove('flex');
+      btnVoiceInput.classList.remove('bg-rose-600/30', 'border-rose-500', 'text-rose-400');
+      micIcon.classList.remove('mic-recording');
+      if (speechRecognition) {
+        try { speechRecognition.stop(); } catch {}
+      }
+    }
+
+    btnVoiceInput.addEventListener('click', () => {
+      if (isRecordingVoice) {
+        stopVoiceRecognition();
+      } else {
+        startVoiceRecognition();
+      }
+    });
+
+    // -------------------------------------------------------------
+    // Personalization Profile Modal
+    // -------------------------------------------------------------
+    const profileModal = document.getElementById('profileModal');
+    const btnOpenProfile = document.getElementById('btnOpenProfile');
+    const btnCloseProfileModal = document.getElementById('btnCloseProfileModal');
+    const btnCancelProfile = document.getElementById('btnCancelProfile');
+    const btnSaveProfile = document.getElementById('btnSaveProfile');
+    const inputDisplayName = document.getElementById('inputDisplayName');
+    const selectTone = document.getElementById('selectTone');
+    const inputCustomInstructions = document.getElementById('inputCustomInstructions');
+
+    btnOpenProfile.addEventListener('click', () => {
+      inputDisplayName.value = userProfileState.display_name || '';
+      selectTone.value = activeTone;
+      inputCustomInstructions.value = userProfileState.custom_instructions || '';
+      profileModal.classList.remove('hidden');
+    });
+
+    function closeProfileModal() {
+      profileModal.classList.add('hidden');
+    }
+    btnCloseProfileModal.addEventListener('click', closeProfileModal);
+    btnCancelProfile.addEventListener('click', closeProfileModal);
+
+    btnSaveProfile.addEventListener('click', async () => {
+      const displayName = inputDisplayName.value.trim() || 'Friend';
+      const toneChoice = selectTone.value;
+      const customNotes = inputCustomInstructions.value.trim();
+
+      try {
+        const res = await fetch('/api/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: 'default_user',
+            display_name: displayName,
+            tone_style: toneChoice,
+            custom_instructions: customNotes
+          })
+        });
+
+        if (res.ok) {
+          const updated = await res.json();
+          userProfileState = updated;
+          headerUserName.innerText = updated.display_name;
+          setTone(updated.tone_style);
+          closeProfileModal();
+        }
+      } catch (err) {
+        alert('Failed to save profile: ' + err.message);
+      }
+    });
+
+    // -------------------------------------------------------------
     // QR Code Sharing Logic for Phones
+    // -------------------------------------------------------------
     const btnShareQr = document.getElementById('btnShareQr');
     const qrModal = document.getElementById('qrModal');
     const btnCloseQrModal = document.getElementById('btnCloseQrModal');
@@ -282,22 +738,5 @@
     });
     btnCloseQrModal.addEventListener('click', () => qrModal.classList.add('hidden'));
   </script>
-
-  <!-- QR Share Modal -->
-  <div id="qrModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xs w-full p-5 shadow-2xl text-center space-y-4">
-      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
-        <h3 class="font-bold text-xs text-white flex items-center gap-1.5">
-          <i data-lucide="smartphone" class="w-4 h-4 text-emerald-400"></i> Open on Any Phone
-        </h3>
-        <button id="btnCloseQrModal" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
-      </div>
-      <p class="text-[11px] text-slate-400">Scan this QR code with your phone camera to open this AI assistant instantly:</p>
-      <div class="p-2 bg-white rounded-xl inline-block shadow-inner">
-        <img id="qrImage" src="" alt="QR Code" class="w-48 h-48 block mx-auto">
-      </div>
-      <div class="text-[10px] text-slate-400 truncate bg-slate-950 p-1.5 rounded font-mono" id="qrUrlText"></div>
-    </div>
-  </div>
 </body>
 </html>

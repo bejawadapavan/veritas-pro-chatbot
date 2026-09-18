@@ -359,6 +359,14 @@ function appendMessage(role, content, steps = null, options = {}) {
       </div>
       <div class="flex items-center gap-2 text-[10px] ${isUser ? 'text-brand-200' : 'text-slate-500'}">
         <span>${options.timestamp ? formatTime(options.timestamp) : 'Just now'}</span>
+        ${!isUser ? `
+          <button onclick="readAloudText(this)" data-content="${escapeHtml(content)}" class="p-1 hover:text-white transition" title="Read message aloud">
+            <i data-lucide="volume-2" class="w-3 h-3"></i>
+          </button>
+          <button onclick="regenerateTurn()" class="p-1 hover:text-white transition" title="Regenerate response">
+            <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+          </button>
+        ` : ''}
         <button onclick="copyToClipboard(this)" data-content="${escapeHtml(content)}" class="p-1 hover:text-white transition" title="Copy text">
           <i data-lucide="copy" class="w-3 h-3"></i>
         </button>
@@ -989,6 +997,67 @@ window.copyToClipboard = function (btn) {
     btn.innerHTML = '<i data-lucide="copy" class="w-3 h-3"></i>';
     lucide.createIcons();
   }, 2000);
+};
+
+window.readAloudText = function (btn) {
+  if (!('speechSynthesis' in window)) {
+    alert('Speech synthesis is not supported on this browser.');
+    return;
+  }
+  const content = btn.getAttribute('data-content') || '';
+  if (window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+    btn.innerHTML = '<i data-lucide="volume-2" class="w-3 h-3"></i>';
+    lucide.createIcons();
+    return;
+  }
+  const clean = content
+    .replace(/```[\s\S]*?```/g, 'Code block omitted.')
+    .replace(/[#*_`~>-]/g, ' ')
+    .replace(/\n+/g, '. ')
+    .trim();
+
+  const u = new SpeechSynthesisUtterance(clean);
+  btn.innerHTML = '<i data-lucide="volume-x" class="w-3 h-3 text-rose-400"></i>';
+  lucide.createIcons();
+  u.onend = () => {
+    btn.innerHTML = '<i data-lucide="volume-2" class="w-3 h-3"></i>';
+    lucide.createIcons();
+  };
+  u.onerror = () => {
+    btn.innerHTML = '<i data-lucide="volume-2" class="w-3 h-3"></i>';
+    lucide.createIcons();
+  };
+  window.speechSynthesis.speak(u);
+};
+
+window.regenerateTurn = async function () {
+  agentStatusBadge.classList.remove('hidden');
+  agentStatusBadge.classList.add('flex');
+  agentStatusText.innerText = 'Regenerating alternative response...';
+
+  try {
+    const res = await fetch('/api/chat/regenerate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: currentSessionId,
+        persona: currentPersona,
+        model: modelSelector.value
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Regeneration failed');
+
+    // Reload conversation to refresh thread cleanly
+    await loadSession(currentSessionId);
+  } catch (err) {
+    alert('Regeneration error: ' + err.message);
+  } finally {
+    agentStatusBadge.classList.add('hidden');
+    agentStatusBadge.classList.remove('flex');
+  }
 };
 
 // -------------------------------------------------------------

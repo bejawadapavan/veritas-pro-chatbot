@@ -51,10 +51,13 @@ app.get('/api/status', (req, res) => {
     else if (openRouterKey) activeEngine = 'OpenRouter (Connected)';
     else if (anthropicKey) activeEngine = 'Anthropic Claude (Connected)';
 
+    const userProfile = db.getUserProfile('default_user');
+
     res.json({
       database: 'Connected (SQLite WAL Mode)',
       activeEngine,
       appMasterKey,
+      userProfile,
       toolsCount: Object.keys(agent.tools).length,
       stats: {
         sessions: sessionCount,
@@ -198,7 +201,15 @@ app.delete('/api/sessions/:id/messages', (req, res) => {
 // Main Autonomous Agent Chat Route (ReAct Loop)
 // -------------------------------------------------------------
 app.post('/api/chat', async (req, res) => {
-  const { sessionId = 'main-session', message, persona = 'general', provider = 'auto', model = 'auto' } = req.body;
+  const {
+    sessionId = 'main-session',
+    message,
+    persona = 'general',
+    provider = 'auto',
+    model = 'auto',
+    tone = null,
+    userId = 'default_user'
+  } = req.body;
 
   if (!message || message.trim() === '') {
     return res.status(400).json({ error: 'Message cannot be empty.' });
@@ -224,7 +235,9 @@ app.post('/api/chat', async (req, res) => {
       message,
       persona: persona || (session ? session.persona : 'general'),
       preferredProvider: provider !== 'auto' ? provider : (session ? session.provider : 'auto'),
-      preferredModel: model !== 'auto' ? model : (session ? session.model : 'auto')
+      preferredModel: model !== 'auto' ? model : (session ? session.model : 'auto'),
+      tone,
+      userId
     });
 
     // 4. Save Assistant message with thoughts and tool traces
@@ -255,6 +268,104 @@ app.post('/api/chat', async (req, res) => {
       error: err.message,
       response: `An error occurred during agent execution: ${err.message}. If using an external provider, please check your API key in Settings.`
     });
+  }
+});
+
+// -------------------------------------------------------------
+// User Profile & Conversational Settings Endpoints
+// -------------------------------------------------------------
+app.get('/api/profile', (req, res) => {
+  try {
+    const userId = req.query.userId || 'default_user';
+    const profile = db.getUserProfile(userId);
+    res.json(profile);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/profile', (req, res) => {
+  try {
+    const { userId = 'default_user', display_name, tone_style, custom_instructions, voice_enabled } = req.body;
+    const updated = db.saveUserProfile(userId, {
+      display_name,
+      tone_style,
+      custom_instructions,
+      voice_enabled
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// Message Regeneration Route
+// -------------------------------------------------------------
+app.post('/api/chat/regenerate', async (req, res) => {
+  const {
+    sessionId = 'main-session',
+    tone = null,
+    persona = 'general',
+    provider = 'auto',
+    model = 'auto',
+    userId = 'default_user'
+  } = req.body;
+
+  try {
+    // Find the latest user message
+    const lastUserMsg = db.prepare(`
+      SELECT id, content FROM messages 
+      WHERE session_id = ? AND role = 'user' 
+      ORDER BY id DESC LIMIT 1
+    `).get(sessionId);
+
+    if (!lastUserMsg) {
+      return res.status(400).json({ error: 'No message available to regenerate.' });
+    }
+
+    // Remove any assistant responses that occurred after this user message
+    db.prepare(`
+      DELETE FROM messages 
+      WHERE session_id = ? AND role = 'assistant' AND id > ?
+    `).run(sessionId, lastUserMsg.id);
+
+    const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId);
+
+    // Re-run agent turn
+    const agentResult = await agent.runAgentTurn({
+      sessionId,
+      message: lastUserMsg.content,
+      persona: persona || (session ? session.persona : 'general'),
+      preferredProvider: provider !== 'auto' ? provider : (session ? session.provider : 'auto'),
+      preferredModel: model !== 'auto' ? model : (session ? session.model : 'auto'),
+      tone,
+      userId
+    });
+
+    const thoughtsJson = agentResult.steps && agentResult.steps.length > 0 
+      ? JSON.stringify(agentResult.steps.map(s => s.thought)) 
+      : null;
+    const toolMetaJson = agentResult.steps && agentResult.steps.length > 0 
+      ? JSON.stringify(agentResult.steps) 
+      : null;
+
+    db.prepare(`
+      INSERT INTO messages (session_id, role, content, thoughts, tool_meta)
+      VALUES (?, 'assistant', ?, ?, ?)
+    `).run(sessionId, agentResult.reply, thoughtsJson, toolMetaJson);
+
+    db.prepare('UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(sessionId);
+
+    res.json({
+      response: agentResult.reply,
+      steps: agentResult.steps,
+      provider: agentResult.provider,
+      latency: agentResult.latency
+    });
+  } catch (err) {
+    console.error('[Regenerate Error]:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
