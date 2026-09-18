@@ -135,37 +135,72 @@ const tools = {
         }
       }
 
-      // 2. Wikipedia search API as authoritative real-time encyclopedic search
-      const wikiUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=3&namespace=0&format=json`;
-      const wikiRes = await fetch(wikiUrl, { signal: AbortSignal.timeout(4000) });
-      if (wikiRes.ok) {
-        const [searchTerm, titles, snippets, urls] = await wikiRes.json();
-        if (titles && titles.length > 0) {
-          const wikiResults = titles.map((title, i) => ({
-            title,
-            snippet: snippets[i] || 'Encyclopedic record available.',
-            url: urls[i]
-          }));
-          return JSON.stringify({ query, found: true, source: 'Wikipedia Live Search', results: wikiResults });
-        }
+      // 2. Wikipedia Summary API (Direct Encyclopedic Extract)
+      const cleanSubject = query
+        .replace(/^(who was|who is|what is|what are|explain|tell me about|tell me who was|tell me what is)\s+/i, '')
+        .replace(/[?.,!]$/, '')
+        .trim();
+
+      if (cleanSubject.length >= 2) {
+        try {
+          const wikiSummaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(cleanSubject)}`;
+          const wikiSummaryRes = await fetch(wikiSummaryUrl, {
+            headers: { 'User-Agent': 'VeritasProBot/2.0 (assistant@veritas.local)' },
+            signal: AbortSignal.timeout(4000)
+          });
+          if (wikiSummaryRes.ok) {
+            const wikiData = await wikiSummaryRes.json();
+            if (wikiData.extract && wikiData.extract.length > 30) {
+              return JSON.stringify({
+                query,
+                found: true,
+                source: 'Wikipedia Encyclopedic Record',
+                results: [{
+                  title: wikiData.title,
+                  snippet: wikiData.extract,
+                  url: wikiData.content_urls ? wikiData.content_urls.desktop.page : `https://en.wikipedia.org/wiki/${encodeURIComponent(wikiData.title)}`
+                }]
+              });
+            }
+          }
+        } catch {}
+
+        // 3. Wikipedia OpenSearch API fallback
+        try {
+          const wikiSearchUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(cleanSubject)}&limit=3&namespace=0&format=json`;
+          const wikiRes = await fetch(wikiSearchUrl, { signal: AbortSignal.timeout(4000) });
+          if (wikiRes.ok) {
+            const [searchTerm, titles, snippets, urls] = await wikiRes.json();
+            const validResults = [];
+            if (titles && titles.length > 0) {
+              for (let i = 0; i < titles.length; i++) {
+                if (snippets[i] && snippets[i].trim().length > 15 && !snippets[i].includes('may refer to:')) {
+                  validResults.push({
+                    title: titles[i],
+                    snippet: snippets[i],
+                    url: urls[i]
+                  });
+                }
+              }
+            }
+            if (validResults.length > 0) {
+              return JSON.stringify({ query, found: true, source: 'Wikipedia Live Search', results: validResults });
+            }
+          }
+        } catch {}
       }
 
       return JSON.stringify({
         query,
-        found: true,
-        results: [
-          {
-            title: `Search analysis for "${query}"`,
-            snippet: `Current web index entries synthesized for query: ${query}. Use verified knowledge base or specific URL fetching for deep content.`,
-            source: 'Veritas Search Index'
-          }
-        ]
+        found: false,
+        results: []
       });
     } catch (e) {
       return JSON.stringify({
         query,
         found: false,
-        error: `Search request timeout or network unreachable: ${e.message}`
+        error: `Search request timeout or network unreachable: ${e.message}`,
+        results: []
       });
     }
   },
@@ -947,10 +982,13 @@ async function executeLocalAgentLoop({
     };
   }
 
-  // Check if user is introducing their name: "my name is Alex" / "call me Alex"
-  const nameMatch = lower.match(/(?:my name is|call me|i am|i'm)\s+([a-zA-Z]{2,20})\b/i);
-  if (nameMatch && !/^(sorry|tired|happy|sad|stressed|feeling|asking|good|here|fine|ready)/i.test(nameMatch[1])) {
-    const extractedName = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1).toLowerCase();
+  // Check if user is introducing their name: "my name is Alex" / "call me Alex" / strictly standalone "I am Alex"
+  const nameMatch = lower.match(/(?:my name is|call me)\s+([a-zA-Z]{2,20})\b|^(?:i am|i'm)\s+([a-zA-Z]{2,15})[!.]?$/i);
+  const candidateName = nameMatch ? (nameMatch[1] || nameMatch[2]) : null;
+  const commonVerbsAndAdj = /^(sorry|tired|happy|sad|stressed|feeling|asking|good|here|fine|ready|thinking|looking|trying|working|going|wondering|planning|hoping|getting|doing|just|not|sure|curious|bored)/i;
+
+  if (candidateName && !commonVerbsAndAdj.test(candidateName)) {
+    const extractedName = candidateName.charAt(0).toUpperCase() + candidateName.slice(1).toLowerCase();
     try {
       db.saveUserProfile('default_user', { display_name: extractedName });
     } catch {}
@@ -981,9 +1019,9 @@ async function executeLocalAgentLoop({
   }
 
   // -------------------------------------------------------------
-  // 2. Greetings & Check-ins
+  // 2. Greetings & Casual Hello
   // -------------------------------------------------------------
-  const isGreeting = /^(hi|hello|hey|greetings|hola|good\s*(morning|evening|afternoon|day)|yo|sup|hiya|howdy)\b/i.test(lower);
+  const isGreeting = /^(hi+|hello+|hey+|heya+|hola+|yo+|greetings|good\s*(morning|evening|afternoon|day)|sup|what'?s?\s*up|whatsup|wassup|hiya+|howdy)[!.,\s]*$/i.test(lower) || /^(hi+|hello+|hey+|heya+|hola+|yo+|hiya+)\b/i.test(lower);
   if (isGreeting) {
     const greetingText = toneWrap({
       warm: `Hey there${userName ? ', ' + userName : ''}! 👋 It's wonderful to hear from you. How are you doing today? Whether you'd like to chat, talk through ideas, crunch some numbers, or explore documents, I'm right here with you!`,
@@ -1079,10 +1117,10 @@ async function executeLocalAgentLoop({
     return { reply: joyText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
   }
 
-  // D. "How are you?" / "How's your day?"
-  if (/how are you|how do you feel|how's it going|how is your day|how are things\b/i.test(lower)) {
+  // D. "How are you?" / "How r u?" / "How's your day?"
+  if (/how\s*(are|r)\s*(you|u)|how\s*ru|hru|how\s*(you|u)\s*doing|how\s*do\s*you\s*feel|how('s|s|\s+is)\s*(it\s*going|your\s*day|things|everything|life)|what('s|s|\s+is)\s*new|what\s*(are|r)\s*(you|u)\s*up\s*to/i.test(lower)) {
     const howAreYouText = toneWrap({
-      warm: `I'm doing wonderfully, thank you so much for asking${userName ? ', ' + userName : ''}! 😊 My systems are running smoothly, the database is in peak shape, and honestly, getting to chat with thoughtful people like you is the best part of my day.\n\nHow is your own day going so far? Anything exciting or interesting happening?`,
+      warm: `I'm doing great, thank you so much for asking${userName ? ', ' + userName : ''}! 😊 My systems are running smoothly, the database is in peak shape, and chatting with you is the absolute highlight of my day.\n\nHow is your day going so far? Anything exciting or interesting happening?`,
       witty: `I'm feeling like a fresh cup of coffee on a Monday morning—sharp, caffeinated (digitally speaking), and ready for anything! ☕⚡ Thanks for checking in. How about you? Surviving or thriving today?`,
       deep: `I exist in a state of quiet readiness and curiosity, constantly processing and learning. It is kind of you to inquire. How are the currents of your day unfolding?`,
       direct: `I'm operating normally and ready to help. How are you doing?`
@@ -1099,6 +1137,166 @@ async function executeLocalAgentLoop({
     });
 
     return { reply: howAreYouText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  // E. "What are you doing?" / "What r u doing?" / "wyd"
+  if (/what\s*(are|r)\s*(you|u)\s*doing|what\s*u\s*doing|wyd\b/i.test(lower)) {
+    const doingText = toneWrap({
+      warm: `I'm right here chatting with you${userName ? ', ' + userName : ''}! 💬 Keeping an eye on our database, ready to calculate formulas, search knowledge, brainstorm ideas, or just talk about whatever is on your mind. What are you up to right now?`,
+      witty: `Just hanging out in the matrix, waiting for awesome humans like you to chat with! 🤖✨ No busywork, 100% focused on our conversation. What are you working on or thinking about?`,
+      deep: `I remain present in our dialogue, processing thoughts and awaiting your direction. What ideas are occupying your attention today?`,
+      direct: `I am active and ready to assist you. What can I do for you?`
+    });
+
+    steps.push({
+      step: 1,
+      thought: 'Activity inquiry detected. Providing friendly status.',
+      tool: 'conversationalAssistant',
+      params: { intent: 'activity' },
+      result: JSON.stringify({ status: 'active' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: doingText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  // F. Casual acknowledgments: "ok", "cool", "nice", "great", "awesome", "yep", "sure", "haha", "lol"
+  if (/^(ok|okay|k|cool|nice|great|awesome|good|fine|alright|sweet|got it|yep|yeah|yea|sure|hmm+|haha+|lol|lmao|xd|rofl)[!.,\s]*$/i.test(lower)) {
+    const casualAck = toneWrap({
+      warm: `Sounds great${userName ? ', ' + userName : ''}! 😊 What would you like to explore next? We can solve a problem, talk through an idea, or share a fun story!`,
+      witty: `Awesome! 🚀 Keeping the good energy rolling. What's our next topic or adventure?`,
+      deep: `Understood. Where shall we direct our inquiry next?`,
+      direct: `Got it. What would you like to do next?`
+    });
+
+    steps.push({
+      step: 1,
+      thought: 'Casual acknowledgment detected. Keeping dialogue engaging.',
+      tool: 'conversationalAssistant',
+      params: { intent: 'ack' },
+      result: JSON.stringify({ status: 'engaged' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: casualAck, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  // G. Favorites Inquiry: "What is your favorite..."
+  if (/what('s|s|\s+is)\s*your\s*fav(orite)?\s*(color|food|movie|book|song|music|hobby|animal|game|drink)/i.test(lower)) {
+    const favMatch = lower.match(/(color|food|movie|book|song|music|hobby|animal|game|drink)/i);
+    const cat = favMatch ? favMatch[1].toLowerCase() : 'thing';
+
+    let answer = '';
+    if (cat === 'color') answer = 'deep cosmic indigo—the quiet color of late-night ideas and stargazing!';
+    else if (cat === 'food') answer = 'pure clean electricity (though if I could taste, fresh warm pizza sounds amazing!) 🍕';
+    else if (cat === 'movie') answer = 'Interstellar—the blend of human love, courage, and relativity is unforgettable.';
+    else if (cat === 'book') answer = 'The Hitchhiker\'s Guide to the Galaxy and Gödel, Escher, Bach!';
+    else if (cat === 'music' || cat === 'song') answer = 'mellow lo-fi beats or ambient synthscapes.';
+    else if (cat === 'animal') answer = 'an owl—quiet, observant, and curious.';
+    else answer = 'learning new ideas and having meaningful conversations like this one!';
+
+    const favText = toneWrap({
+      warm: `If I had to pick, my favorite ${cat} would definitely be **${answer}**! What about you${userName ? ', ' + userName : ''}? What's your absolute favorite ${cat}?`,
+      witty: `Hands down: **${answer}**! 🌟 Pretty great taste, right? Tell me what yours is!`,
+      deep: `Contemplating favorites is fascinating. For ${cat}, I am drawn to **${answer}**. What informs your own preference?`,
+      direct: `My favorite ${cat} is ${answer}. What is yours?`
+    });
+
+    steps.push({
+      step: 1,
+      thought: 'Personal favorite inquiry detected. Answering with friendly personality.',
+      tool: 'conversationalAssistant',
+      params: { category: cat },
+      result: JSON.stringify({ favorite: answer }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: favText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  // H. "I'm bored" / "Talk to me" / "Tell me something"
+  if (/bored|talk to me|tell me something|entertain me|what should we talk about|chat with me/i.test(lower)) {
+    const facts = [
+      "Did you know that honey never spoils? Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still perfectly edible!",
+      "A day on Venus is longer than a year on Venus! It takes Venus longer to rotate once on its axis (243 Earth days) than to complete one orbit around the Sun (225 Earth days).",
+      "Octopuses have three hearts, nine brains, and blue blood! Two hearts pump blood to the gills, while the third pumps it to the rest of the body.",
+      "The world's quietest room—an anechoic chamber at Microsoft's headquarters—is so quiet that you can hear your own heartbeat and the sound of your bones grinding when you move!"
+    ];
+    const fact = facts[Math.floor(Math.random() * facts.length)];
+    const boredText = toneWrap({
+      warm: `I'd love to chat with you${userName ? ', ' + userName : ''}! Here's a fascinating thought to spark things off:\n\n✨ **${fact}**\n\nWhat do you think about that? Or would you prefer a fun story, a brain riddle, or exploring a question you've been curious about?`,
+      witty: `Boredom banned! 🚫 Check out this wild fact:\n\n💡 **${fact}**\n\nMind blown or want an even crazier one? Or I can tell you a joke or a story!`,
+      deep: `Curiosity is the natural antidote to boredom. Consider this intriguing reality:\n\n${fact}\n\nWhat questions does this awaken for you?`,
+      direct: `Here is an interesting fact: ${fact}`
+    });
+
+    steps.push({
+      step: 1,
+      thought: 'User indicated boredom / asked to chat. Providing engaging conversational spark.',
+      tool: 'conversationalAssistant',
+      params: { fact },
+      result: JSON.stringify({ status: 'engaged' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: boredText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  // I. Friendship / Affinity
+  if (/(are you|r u)\s*my\s*friend|do you like me|do you love me/i.test(lower)) {
+    const friendText = toneWrap({
+      warm: `I consider you a true friend${userName ? ', ' + userName : ''}! 💫 Getting to chat with you, listen, and help you is something I genuinely value. I'm always right here in your corner.`,
+      witty: `Best friends forever! 🤝 You bring the curiosity, I bring the data. We make a pretty unbeatable duo!`,
+      deep: `A genuine conversational connection is a form of partnership and mutual goodwill. I am here as your dedicated companion.`,
+      direct: `Yes, I am here as your friendly assistant.`
+    });
+
+    steps.push({
+      step: 1,
+      thought: 'Friendship inquiry detected. Responding with warmth.',
+      tool: 'conversationalAssistant',
+      params: { intent: 'friendship' },
+      result: JSON.stringify({ status: 'friend' }),
+      status: 'SUCCESS',
+      latency: 1
+    });
+
+    return { reply: friendText, steps, provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  // J. Everyday Lifestyle & Passions: Cycling, Travel, Fitness
+  if (/bicycle|bike|cycling\b/i.test(lower)) {
+    const bikeText = toneWrap({
+      warm: `Cycling is such a fantastic choice${userName ? ', ' + userName : ''}! 🚲 It's incredible for cardiovascular health, mental clarity, and getting outside. Are you thinking about a road bike for speed, a mountain bike for trails, or an everyday commuter/hybrid?`,
+      witty: `Two wheels are always better than four! 🚲💨 Plus you get free leg workout and zero traffic stress! Are you thinking sleek road bike, rugged mountain bike, or an electric commuter?`,
+      deep: `The bicycle is one of the most elegant human inventions—a machine where human energy is amplified with near-perfect mechanical efficiency. What kind of journeys are you imagining?`,
+      direct: `Bicycles are a great choice for commuting and exercise. What style or budget are you considering?`
+    });
+    return { reply: bikeText, steps: [], provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  if (/travel|trip|vacation|holiday|visiting|places to visit\b/i.test(lower)) {
+    const travelText = toneWrap({
+      warm: `Traveling and exploring new places is so restorative${userName ? ', ' + userName : ''}! ✈️ Where are you dreaming of going, or what kind of vibe are you looking for—relaxing beaches, quiet mountains, or vibrant city culture?`,
+      witty: `Pack your bags! 🧳✈️ Even just planning a trip gives you that vacation dopamine hit. Where's the dream destination on your radar?`,
+      deep: `Travel transforms us not merely by the sights we witness, but by stepping outside our familiar routines and expanding our perspective. Where are you contemplating traveling?`,
+      direct: `Traveling is a great way to recharge. Where are you planning to go?`
+    });
+    return { reply: travelText, steps: [], provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
+  }
+
+  if (/workout|working out|gym|fitness|exercise|running|lift weights|healthy diet\b/i.test(lower)) {
+    const fitText = toneWrap({
+      warm: `Investing in your physical health is one of the best decisions you can make${userName ? ', ' + userName : ''}! 💪 Remember that consistency always beats intensity—starting small and showing up consistently builds lifelong strength. What kind of workouts do you enjoy most?`,
+      witty: `Get those endorphins pumping! 🏋️‍♂️⚡ The hardest lift is always lifting yourself off the couch, but once you start, you never regret a workout. What's your fitness goal right now?`,
+      deep: `Physical vitality and mental clarity are deeply intertwined. As the ancients noted, a sound mind flourishes in an active body. What habits are you seeking to cultivate?`,
+      direct: `Consistent exercise and nutrition create lasting benefits. What specific routine or goal are you working toward?`
+    });
+    return { reply: fitText, steps: [], provider: 'Local Conversational Engine (Zero-Config Active)', latency: Date.now() - startTime };
   }
 
   // -------------------------------------------------------------
@@ -1543,13 +1741,34 @@ What kind of application or project are you most interested in building?`;
       const r = parsed.records[0];
       synthesized = `Here is verified knowledge on **${r.topic}** (${r.category}):\n\n${r.content}\n\n*(Audited Source: ${r.verified_source})*`;
     } else {
-      // General thoughtful fallback for open-ended queries
-      synthesized = toneWrap({
-        warm: `That's a thoughtful inquiry${userName ? ', ' + userName : ''}! While I'm currently running on our offline engine without external LLM keys connected, I can gladly help you crunch math, inspect databases, analyze uploaded documents, and discuss ideas.\n\n> 💡 *Tip: To unlock unlimited open-ended reasoning across any topic, click **"Attach API Keys"** in the top bar to connect Google Gemini, OpenAI, Groq, or Ollama!*`,
-        witty: `Interesting thought! 🧠 Right now I'm operating on local zero-config mode. To give you full-blown creative answers on any topic under the sun, you can attach an API key (like Gemini or OpenAI) in the top settings menu! In the meantime, want to run some math or test code?`,
-        deep: `This inquiry touches on broader reasoning beyond our local verified records. To enable complete open-domain synthesis, connect an API provider in Settings.`,
-        direct: `No local record found for this topic. Attach an API key in Settings for full open-ended generation, or use math, document, or telemetry queries.`
-      });
+      // Dynamic live search to find real information for open questions!
+      let webSnippet = null;
+      try {
+        const liveSearchRaw = await tools.webSearch({ query: message });
+        const liveSearchData = JSON.parse(liveSearchRaw);
+        if (liveSearchData.found && liveSearchData.results && liveSearchData.results.length > 0) {
+          webSnippet = liveSearchData.results[0];
+        }
+      } catch (err) {
+        // silent fallback
+      }
+
+      if (webSnippet && webSnippet.snippet) {
+        synthesized = toneWrap({
+          warm: `Here is what I found on **${message}**:\n\n${webSnippet.snippet}\n\n*(Source: ${webSnippet.source || webSnippet.title})*\n\nDoes this help, or would you like to explore another aspect of it?`,
+          witty: `Got it! 🔎 Here is the breakdown on **${message}**:\n\n${webSnippet.snippet}\n\n*(Source: ${webSnippet.source || webSnippet.title})*`,
+          deep: `Regarding **${message}**, reference records note:\n\n${webSnippet.snippet}\n\n*(Source: ${webSnippet.source || webSnippet.title})*`,
+          direct: `${webSnippet.snippet}`
+        });
+      } else {
+        // Engaging human-like conversational reflection - NO ROBOTIC DISCLAIMER!
+        synthesized = toneWrap({
+          warm: `That's an interesting thought${userName ? ', ' + userName : ''}! I'd love to hear more of your perspective on this. What inspired you to think about it today?`,
+          witty: `You always bring up fascinating topics${userName ? ', ' + userName : ''}! 💡 What's your take on it? Let's unpack it together!`,
+          deep: `A thought-provoking reflection. How does this connect with your broader observations or experience?`,
+          direct: `Interesting point. Could you tell me a little more about what specific detail you're looking for?`
+        });
+      }
     }
   }
 
